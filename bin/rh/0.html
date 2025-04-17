@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=800, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RushHour GTA5RP</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --cell-size: 100px;
+      --grid-size: calc(var(--cell-size) * 6);
+    }
+    html, body {
+      overflow: hidden;
+    }
+    @media (max-width: 800px) {
+    }
+    .car-anim-exit {
+      transition: left 2.5s cubic-bezier(.4,2,.6,1);
+      left: calc(100vw + 100px) !important; /* sort très loin à droite, aucune collision */
+      z-index: 100;
+      opacity: 1;
+    }
+    .car-anim-center {
+      transition: opacity 0.7s cubic-bezier(.4,0,1,1), transform 0.7s cubic-bezier(.4,0,1,1);
+      left: 50% !important;
+      top: 50% !important;
+      transform: translate(-50%, -50%) scale(3);
+      z-index: 9999;
+      opacity: 1;
+      box-shadow: 0 0 40px 10px #000a;
+    }
+    .car-anim-center-hidden {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+    .car-anim-hide {
+      opacity: 0 !important;
+      pointer-events: none;
+    }
+    .car-anim-enter {
+      transition: none;
+      left: calc(6 * var(--cell-size) + 20px);
+      z-index: 100;
+    }
+    .car-anim-zoom {
+      transition: left 0.5s cubic-bezier(.4,2,.6,1), transform 0.5s cubic-bezier(.4,2,.6,1);
+      left: calc(2 * var(--cell-size));
+      transform: scale(2);
+      z-index: 100;
+    }
+    .car-anim-reset {
+      transition: left 0.3s, transform 0.3s;
+      left: calc(1 * var(--cell-size) + 1 * 4px);
+      transform: none;
+      z-index: 10;
+    }
+    .red-label {
+      position: absolute;
+      left: 0; right: 0; top: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 2px 8px #000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .show-label {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen">
+  <main class="flex flex-col items-center">
+    <div id="game-board" class="relative bg-gray-800 rounded-lg shadow-lg"
+      style="width: var(--grid-size); height: var(--grid-size);">
+      <!-- Grille 6x6 -->
+      <div class="absolute inset-0 grid grid-cols-6 grid-rows-6 gap-1">
+        <!-- Les cases seront générées par JS -->
+      </div>
+      <!-- Trou de sortie -->
+      <div class="absolute right-[-16px] top-[calc(var(--cell-size)*2+2px)] w-4 h-[calc(var(--cell-size)-4px)] bg-gray-900 rounded-r-lg border-2 border-gray-700"></div>
+    </div>
+  </main>
+  <script>
+    // Variables pour la grille
+    const board = document.querySelector('#game-board > div');
+    // Génération de la grille 6x6 normale
+    board.innerHTML = '';
+    for (let y = 0; y < 6; y++) {
+      for (let x = 0; x < 6; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'bg-gray-700 rounded';
+        cell.style.width = 'var(--cell-size)';
+        cell.style.height = 'var(--cell-size)';
+        board.appendChild(cell);
+      }
+    }
+    // Ajout des cases de sortie (visuelles) à droite de la 3e ligne
+    for (let sx = 6; sx < 8; sx++) {
+      const cell = document.createElement('div');
+      cell.style.position = 'absolute';
+      cell.style.left = `calc(${sx} * var(--cell-size) + ${sx} * 4px)`;
+      cell.style.top = `calc(2 * var(--cell-size) + 2 * 4px)`;
+      cell.style.width = 'var(--cell-size)';
+      cell.style.height = 'var(--cell-size)';
+      cell.style.background = 'transparent';
+      cell.style.pointerEvents = 'none';
+      board.appendChild(cell);
+    }
+
+    // Définition des voitures (exemple)
+    const cars = [
+      // Voiture rouge (2x1, horizontale, ligne 3, colonnes 2-3)
+      { id: 'red', x: 1, y: 2, length: 2, dir: 'h', color: 'bg-red-500' },
+      // Autres voitures exemples
+      { id: 'v1', x: 0, y: 0, length: 3, dir: 'v', color: 'bg-blue-400' },
+      { id: 'h1', x: 4, y: 0, length: 2, dir: 'h', color: 'bg-green-400' },
+      { id: 'v2', x: 3, y: 3, length: 3, dir: 'v', color: 'bg-yellow-400' },
+      { id: 'h2', x: 0, y: 5, length: 3, dir: 'h', color: 'bg-purple-400' },
+    ];
+
+    // Affichage des voitures
+    const gameBoard = document.getElementById('game-board');
+    cars.forEach(car => {
+      const carDiv = document.createElement('div');
+      carDiv.className = `absolute rounded shadow ${car.color}`;
+      carDiv.style.left = `calc(${car.x} * var(--cell-size) + ${car.x} * 4px)`;
+      carDiv.style.top = `calc(${car.y} * var(--cell-size) + ${car.y} * 4px)`;
+      carDiv.style.width = car.dir === 'h' ? `calc(var(--cell-size) * ${car.length} + 4px * (${car.length} - 1))` : 'var(--cell-size)';
+      carDiv.style.height = car.dir === 'v' ? `calc(var(--cell-size) * ${car.length} + 4px * (${car.length} - 1))` : 'var(--cell-size)';
+      carDiv.setAttribute('data-id', car.id);
+      carDiv.setAttribute('data-dir', car.dir);
+      carDiv.setAttribute('data-x', car.x);
+      carDiv.setAttribute('data-y', car.y);
+      carDiv.setAttribute('data-length', car.length);
+      if (car.id === 'red') {
+        const label = document.createElement('div');
+        label.className = 'red-label';
+        label.textContent = '9999';
+        carDiv.appendChild(label);
+      }
+      gameBoard.appendChild(carDiv);
+    });
+
+    // --- Logique de déplacement des voitures ---
+    let dragging = null;
+    let dragStart = { x: 0, y: 0, mouse: 0 };
+    let gameWon = false;
+    let redCarFree = false;
+
+    // getOccupiedCells : bloque les cases de sortie pour toutes les voitures sauf la rouge
+    function getOccupiedCells(excludeId = null) {
+      const occ = new Set();
+      cars.forEach(car => {
+        if (car.id === excludeId) return;
+        for (let i = 0; i < car.length; i++) {
+          const cx = car.x + (car.dir === 'h' ? i : 0);
+          const cy = car.y + (car.dir === 'v' ? i : 0);
+          // Empêche d'occuper les cases de sortie (x>=6, y==2) sauf pour la voiture rouge
+          if (!(cy === 2 && cx >= 6)) {
+            occ.add(`${cx},${cy}`);
+          }
+        }
+      });
+      return occ;
+    }
+
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function updateCarDiv(car) {
+      const carDiv = document.querySelector(`[data-id="${car.id}"]`);
+      carDiv.style.left = `calc(${car.x} * var(--cell-size) + ${car.x} * 4px)`;
+      carDiv.style.top = `calc(${car.y} * var(--cell-size) + ${car.y} * 4px)`;
+      carDiv.setAttribute('data-x', car.x);
+      carDiv.setAttribute('data-y', car.y);
+    }
+
+    function onMouseDown(e) {
+      if (gameWon) return;
+      const carDiv = e.target.closest('[data-id]');
+      if (!carDiv) return;
+      e.preventDefault(); // Empêche la sélection/drag image
+      const id = carDiv.getAttribute('data-id');
+      const car = cars.find(c => c.id === id);
+      dragging = { car, carDiv };
+      dragStart.x = car.x;
+      dragStart.y = car.y;
+      dragStart.mouse = car.dir === 'h' ? e.clientX : e.clientY;
+      document.body.style.userSelect = 'none';
+    }
+
+    // onMouseMove : adapte la limite pour la voiture rouge sur la 3e ligne
+    function onMouseMove(e) {
+      if (!dragging || gameWon) return;
+      const { car } = dragging;
+      const occ = (car.id === 'red' && redCarFree) ? new Set() : getOccupiedCells(car.id);
+      let delta = (car.dir === 'h' ? e.clientX : e.clientY) - dragStart.mouse;
+      let cellDelta = Math.round(delta / parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')));
+      let start = dragStart[car.dir === 'h' ? 'x' : 'y'];
+      let min = 0;
+      // Pour la voiture rouge sur la 3e ligne, elle peut aller jusqu'à x=7
+      let max = (car.id === 'red' && car.y === 2) ? 7 - car.length + 1 : 6 - car.length;
+      let newPos = start;
+      if (cellDelta !== 0) {
+        let step = cellDelta > 0 ? 1 : -1;
+        for (let d = 1; d <= Math.abs(cellDelta); d++) {
+          let pos = start + d * step;
+          if (pos < min || pos > max) break;
+          let blocked = false;
+          for (let i = 0; i < car.length; i++) {
+            let cx = car.dir === 'h' ? (pos + i) : car.x;
+            let cy = car.dir === 'v' ? (pos + i) : car.y;
+            // Empêche toute voiture sauf la rouge d'aller dans la sortie
+            if (car.id !== 'red' && cy === 2 && cx >= 6) {
+              blocked = true;
+              break;
+            }
+            if (occ.has(`${cx},${cy}`)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) break;
+          newPos = pos;
+        }
+        if (car.dir === 'h') car.x = newPos;
+        else car.y = newPos;
+        updateCarDiv(car);
+      }
+    }
+
+    // onMouseUp : victoire si la voiture rouge atteint x >= 6 sur la 3e ligne
+    function onMouseUp() {
+      if (gameWon) return;
+      if (dragging && dragging.car.id === 'red' && dragging.car.y === 2 && dragging.car.x + dragging.car.length - 1 >= 6) {
+        triggerRedCarWin();
+      }
+      dragging = null;
+      document.body.style.userSelect = '';
+    }
+
+    function triggerRedCarWin() {
+      gameWon = true;
+      redCarFree = true;
+      const redCar = document.querySelector('[data-id="red"]');
+      // Force la position de départ en JS (avant l'animation)
+      redCar.style.left = `calc(${redCar.getAttribute('data-x')} * var(--cell-size) + ${redCar.getAttribute('data-x')} * 4px)`;
+      // Forcer le reflow pour que la transition fonctionne
+      void redCar.offsetWidth;
+      // 1. Sortie à droite (aucune collision, aucune limite)
+      redCar.classList.add('car-anim-exit');
+      setTimeout(() => {
+        // 2. Masque la voiture sur la grille
+        redCar.classList.add('car-anim-hide');
+        // 3. Clone et place au centre en grand, invisible au début
+        const redCarCenter = redCar.cloneNode(true);
+        redCarCenter.classList.remove('car-anim-exit','car-anim-hide');
+        redCarCenter.classList.add('car-anim-center','car-anim-center-hidden');
+        document.body.appendChild(redCarCenter);
+        // Affiche le label
+        const label = redCarCenter.querySelector('.red-label');
+        if (label) label.classList.add('show-label');
+        // Forcer le reflow pour que la transition fonctionne
+        void redCarCenter.offsetWidth;
+        // 4. Transition smooth (fade-in + zoom)
+        redCarCenter.classList.remove('car-anim-center-hidden');
+        // (ne jamais retirer la voiture centrale, elle reste à l'infini)
+      }, 900);
+    }
+
+    // Ajout des listeners
+    gameBoard.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    // Désactive le drag d'image sur le canvas et les voitures
+    const allDivs = document.querySelectorAll('#game-board, #game-board > div, [data-id]');
+    allDivs.forEach(div => div.setAttribute('draggable', 'false'));
+  </script>
+</body>
+</html>

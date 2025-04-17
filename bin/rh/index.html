@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=800, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RushHour GTA5RP</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --cell-size: 60px;
+      --grid-size: calc(var(--cell-size) * 6);
+    }
+    @media (max-width: 600px) {
+      :root {
+        --cell-size: 40px;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen">
+  <main class="flex flex-col items-center">
+    <h1 class="text-white text-2xl font-bold mb-4">Méchanisme Gaviria</h1>
+    <div id="game-board" class="relative bg-gray-800 rounded-lg shadow-lg"
+      style="width: var(--grid-size); height: var(--grid-size);">
+      <!-- Grille 6x6 -->
+      <div class="absolute inset-0 grid grid-cols-6 grid-rows-6 gap-1">
+        <!-- Les cases seront générées par JS -->
+      </div>
+      <!-- Trou de sortie -->
+      <div class="absolute right-[-16px] top-[calc(var(--cell-size)*2+2px)] w-4 h-[calc(var(--cell-size)-4px)] bg-gray-900 rounded-r-lg border-2 border-gray-700"></div>
+    </div>
+  </main>
+  <script>
+    // Variables pour la grille
+    const board = document.querySelector('#game-board > div');
+    for (let i = 0; i < 36; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'bg-gray-700 rounded';
+      cell.style.width = 'var(--cell-size)';
+      cell.style.height = 'var(--cell-size)';
+      board.appendChild(cell);
+    }
+
+    // Définition des voitures (exemple)
+    const cars = [
+      // Voiture rouge (2x1, horizontale, ligne 3, colonnes 2-3)
+      { id: 'red', x: 1, y: 2, length: 2, dir: 'h', color: 'bg-red-500' },
+      // Autres voitures exemples
+      { id: 'v1', x: 0, y: 0, length: 3, dir: 'v', color: 'bg-blue-400' },
+      { id: 'h1', x: 4, y: 0, length: 2, dir: 'h', color: 'bg-green-400' },
+      { id: 'v2', x: 3, y: 3, length: 3, dir: 'v', color: 'bg-yellow-400' },
+      { id: 'h2', x: 0, y: 5, length: 3, dir: 'h', color: 'bg-purple-400' },
+    ];
+
+    // Affichage des voitures
+    const gameBoard = document.getElementById('game-board');
+    cars.forEach(car => {
+      const carDiv = document.createElement('div');
+      carDiv.className = `absolute rounded shadow ${car.color}`;
+      carDiv.style.left = `calc(${car.x} * var(--cell-size) + ${car.x} * 4px)`;
+      carDiv.style.top = `calc(${car.y} * var(--cell-size) + ${car.y} * 4px)`;
+      carDiv.style.width = car.dir === 'h' ? `calc(var(--cell-size) * ${car.length} + 4px * (${car.length} - 1))` : 'var(--cell-size)';
+      carDiv.style.height = car.dir === 'v' ? `calc(var(--cell-size) * ${car.length} + 4px * (${car.length} - 1))` : 'var(--cell-size)';
+      carDiv.setAttribute('data-id', car.id);
+      carDiv.setAttribute('data-dir', car.dir);
+      carDiv.setAttribute('data-x', car.x);
+      carDiv.setAttribute('data-y', car.y);
+      carDiv.setAttribute('data-length', car.length);
+      gameBoard.appendChild(carDiv);
+    });
+
+    // --- Logique de déplacement des voitures ---
+    let dragging = null;
+    let dragStart = { x: 0, y: 0, mouse: 0 };
+
+    function getOccupiedCells(excludeId = null) {
+      // Retourne un Set de toutes les cases occupées (hors excludeId)
+      const occ = new Set();
+      cars.forEach(car => {
+        if (car.id === excludeId) return;
+        for (let i = 0; i < car.length; i++) {
+          const cx = car.x + (car.dir === 'h' ? i : 0);
+          const cy = car.y + (car.dir === 'v' ? i : 0);
+          occ.add(`${cx},${cy}`);
+        }
+      });
+      return occ;
+    }
+
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function updateCarDiv(car) {
+      const carDiv = document.querySelector(`[data-id="${car.id}"]`);
+      carDiv.style.left = `calc(${car.x} * var(--cell-size) + ${car.x} * 4px)`;
+      carDiv.style.top = `calc(${car.y} * var(--cell-size) + ${car.y} * 4px)`;
+      carDiv.setAttribute('data-x', car.x);
+      carDiv.setAttribute('data-y', car.y);
+    }
+
+    function onMouseDown(e) {
+      const carDiv = e.target.closest('[data-id]');
+      if (!carDiv) return;
+      e.preventDefault(); // Empêche la sélection/drag image
+      const id = carDiv.getAttribute('data-id');
+      const car = cars.find(c => c.id === id);
+      dragging = { car, carDiv };
+      dragStart.x = car.x;
+      dragStart.y = car.y;
+      dragStart.mouse = car.dir === 'h' ? e.clientX : e.clientY;
+      document.body.style.userSelect = 'none';
+    }
+
+    function onMouseMove(e) {
+      if (!dragging) return;
+      const { car } = dragging;
+      const occ = getOccupiedCells(car.id);
+      let delta = (car.dir === 'h' ? e.clientX : e.clientY) - dragStart.mouse;
+      let cellDelta = Math.round(delta / parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')));
+      let start = dragStart[car.dir === 'h' ? 'x' : 'y'];
+      let min = 0;
+      let max = 6 - car.length;
+      let newPos = start;
+      if (cellDelta !== 0) {
+        let step = cellDelta > 0 ? 1 : -1;
+        for (let d = 1; d <= Math.abs(cellDelta); d++) {
+          let pos = start + d * step;
+          if (pos < min || pos > max) break;
+          let blocked = false;
+          for (let i = 0; i < car.length; i++) {
+            let cx = car.dir === 'h' ? (pos + i) : car.x;
+            let cy = car.dir === 'v' ? (pos + i) : car.y;
+            if (occ.has(`${cx},${cy}`)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) break;
+          newPos = pos;
+        }
+        if (car.dir === 'h') car.x = newPos;
+        else car.y = newPos;
+        updateCarDiv(car);
+      }
+    }
+
+    function onMouseUp() {
+      dragging = null;
+      document.body.style.userSelect = '';
+    }
+
+    // Ajout des listeners
+    gameBoard.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    // Désactive le drag d'image sur le canvas et les voitures
+    const allDivs = document.querySelectorAll('#game-board, #game-board > div, [data-id]');
+    allDivs.forEach(div => div.setAttribute('draggable', 'false'));
+  </script>
+</body>
+</html>

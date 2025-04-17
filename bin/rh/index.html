@@ -8,19 +8,72 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
-      --cell-size: 60px;
+      --cell-size: 100px;
       --grid-size: calc(var(--cell-size) * 6);
     }
-    @media (max-width: 600px) {
-      :root {
-        --cell-size: 40px;
-      }
+    @media (max-width: 800px) {
+    }
+    .car-anim-exit {
+      transition: left 0.9s cubic-bezier(.4,2,.6,1);
+      left: calc(100vw + 200px); /* sort très loin à droite, aucune collision */
+      z-index: 100;
+      opacity: 1;
+    }
+    .car-anim-center {
+      transition: opacity 0.7s cubic-bezier(.4,0,1,1), transform 0.7s cubic-bezier(.4,0,1,1);
+      left: 50% !important;
+      top: 50% !important;
+      transform: translate(-50%, -50%) scale(3);
+      z-index: 9999;
+      opacity: 1;
+      box-shadow: 0 0 40px 10px #000a;
+    }
+    .car-anim-center-hidden {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+    .car-anim-hide {
+      opacity: 0 !important;
+      pointer-events: none;
+    }
+    .car-anim-enter {
+      transition: none;
+      left: calc(6 * var(--cell-size) + 20px);
+      z-index: 100;
+    }
+    .car-anim-zoom {
+      transition: left 0.5s cubic-bezier(.4,2,.6,1), transform 0.5s cubic-bezier(.4,2,.6,1);
+      left: calc(2 * var(--cell-size));
+      transform: scale(2);
+      z-index: 100;
+    }
+    .car-anim-reset {
+      transition: left 0.3s, transform 0.3s;
+      left: calc(1 * var(--cell-size) + 1 * 4px);
+      transform: none;
+      z-index: 10;
+    }
+    .red-label {
+      position: absolute;
+      left: 0; right: 0; top: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 2px 8px #000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .show-label {
+      opacity: 1;
     }
   </style>
 </head>
 <body class="bg-gray-900 flex items-center justify-center min-h-screen">
   <main class="flex flex-col items-center">
-    <h1 class="text-white text-2xl font-bold mb-4">Méchanisme Gaviria</h1>
     <div id="game-board" class="relative bg-gray-800 rounded-lg shadow-lg"
       style="width: var(--grid-size); height: var(--grid-size);">
       <!-- Grille 6x6 -->
@@ -34,11 +87,27 @@
   <script>
     // Variables pour la grille
     const board = document.querySelector('#game-board > div');
-    for (let i = 0; i < 36; i++) {
+    // Génération de la grille 6x6 normale
+    board.innerHTML = '';
+    for (let y = 0; y < 6; y++) {
+      for (let x = 0; x < 6; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'bg-gray-700 rounded';
+        cell.style.width = 'var(--cell-size)';
+        cell.style.height = 'var(--cell-size)';
+        board.appendChild(cell);
+      }
+    }
+    // Ajout des cases de sortie (visuelles) à droite de la 3e ligne
+    for (let sx = 6; sx < 8; sx++) {
       const cell = document.createElement('div');
-      cell.className = 'bg-gray-700 rounded';
+      cell.style.position = 'absolute';
+      cell.style.left = `calc(${sx} * var(--cell-size) + ${sx} * 4px)`;
+      cell.style.top = `calc(2 * var(--cell-size) + 2 * 4px)`;
       cell.style.width = 'var(--cell-size)';
       cell.style.height = 'var(--cell-size)';
+      cell.style.background = 'transparent';
+      cell.style.pointerEvents = 'none';
       board.appendChild(cell);
     }
 
@@ -67,22 +136,33 @@
       carDiv.setAttribute('data-x', car.x);
       carDiv.setAttribute('data-y', car.y);
       carDiv.setAttribute('data-length', car.length);
+      if (car.id === 'red') {
+        const label = document.createElement('div');
+        label.className = 'red-label';
+        label.textContent = '9999';
+        carDiv.appendChild(label);
+      }
       gameBoard.appendChild(carDiv);
     });
 
     // --- Logique de déplacement des voitures ---
     let dragging = null;
     let dragStart = { x: 0, y: 0, mouse: 0 };
+    let gameWon = false;
+    let redCarFree = false;
 
+    // getOccupiedCells : bloque les cases de sortie pour toutes les voitures sauf la rouge
     function getOccupiedCells(excludeId = null) {
-      // Retourne un Set de toutes les cases occupées (hors excludeId)
       const occ = new Set();
       cars.forEach(car => {
         if (car.id === excludeId) return;
         for (let i = 0; i < car.length; i++) {
           const cx = car.x + (car.dir === 'h' ? i : 0);
           const cy = car.y + (car.dir === 'v' ? i : 0);
-          occ.add(`${cx},${cy}`);
+          // Empêche d'occuper les cases de sortie (x>=6, y==2) sauf pour la voiture rouge
+          if (!(cy === 2 && cx >= 6)) {
+            occ.add(`${cx},${cy}`);
+          }
         }
       });
       return occ;
@@ -101,6 +181,7 @@
     }
 
     function onMouseDown(e) {
+      if (gameWon) return;
       const carDiv = e.target.closest('[data-id]');
       if (!carDiv) return;
       e.preventDefault(); // Empêche la sélection/drag image
@@ -113,15 +194,17 @@
       document.body.style.userSelect = 'none';
     }
 
+    // onMouseMove : adapte la limite pour la voiture rouge sur la 3e ligne
     function onMouseMove(e) {
-      if (!dragging) return;
+      if (!dragging || gameWon) return;
       const { car } = dragging;
-      const occ = getOccupiedCells(car.id);
+      const occ = (car.id === 'red' && redCarFree) ? new Set() : getOccupiedCells(car.id);
       let delta = (car.dir === 'h' ? e.clientX : e.clientY) - dragStart.mouse;
       let cellDelta = Math.round(delta / parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')));
       let start = dragStart[car.dir === 'h' ? 'x' : 'y'];
       let min = 0;
-      let max = 6 - car.length;
+      // Pour la voiture rouge sur la 3e ligne, elle peut aller jusqu'à x=7
+      let max = (car.id === 'red' && car.y === 2) ? 7 - car.length + 1 : 6 - car.length;
       let newPos = start;
       if (cellDelta !== 0) {
         let step = cellDelta > 0 ? 1 : -1;
@@ -132,6 +215,11 @@
           for (let i = 0; i < car.length; i++) {
             let cx = car.dir === 'h' ? (pos + i) : car.x;
             let cy = car.dir === 'v' ? (pos + i) : car.y;
+            // Empêche toute voiture sauf la rouge d'aller dans la sortie
+            if (car.id !== 'red' && cy === 2 && cx >= 6) {
+              blocked = true;
+              break;
+            }
             if (occ.has(`${cx},${cy}`)) {
               blocked = true;
               break;
@@ -146,9 +234,39 @@
       }
     }
 
+    // onMouseUp : victoire si la voiture rouge atteint x >= 6 sur la 3e ligne
     function onMouseUp() {
+      if (gameWon) return;
+      if (dragging && dragging.car.id === 'red' && dragging.car.y === 2 && dragging.car.x + dragging.car.length - 1 >= 6) {
+        triggerRedCarWin();
+      }
       dragging = null;
       document.body.style.userSelect = '';
+    }
+
+    function triggerRedCarWin() {
+      gameWon = true;
+      redCarFree = true;
+      const redCar = document.querySelector('[data-id="red"]');
+      // 1. Sortie à droite (aucune collision, aucune limite)
+      redCar.classList.add('car-anim-exit');
+      setTimeout(() => {
+        // 2. Masque la voiture sur la grille
+        redCar.classList.add('car-anim-hide');
+        // 3. Clone et place au centre en grand, invisible au début
+        const redCarCenter = redCar.cloneNode(true);
+        redCarCenter.classList.remove('car-anim-exit','car-anim-hide');
+        redCarCenter.classList.add('car-anim-center','car-anim-center-hidden');
+        document.body.appendChild(redCarCenter);
+        // Affiche le label
+        const label = redCarCenter.querySelector('.red-label');
+        if (label) label.classList.add('show-label');
+        // Forcer le reflow pour que la transition fonctionne
+        void redCarCenter.offsetWidth;
+        // 4. Transition smooth (fade-in + zoom)
+        redCarCenter.classList.remove('car-anim-center-hidden');
+        // (ne jamais retirer la voiture centrale, elle reste à l'infini)
+      }, 900);
     }
 
     // Ajout des listeners

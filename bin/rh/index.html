@@ -11,11 +11,14 @@
       --cell-size: 100px;
       --grid-size: calc(var(--cell-size) * 6);
     }
+    html, body {
+      overflow: hidden;
+    }
     @media (max-width: 800px) {
     }
     .car-anim-exit {
-      transition: left 0.9s cubic-bezier(.4,2,.6,1);
-      left: calc(100vw + 200px); /* sort très loin à droite, aucune collision */
+      transition: left 2.5s cubic-bezier(.4,2,.6,1);
+      left: calc(100vw + 100px) !important; /* sort très loin à droite, aucune collision */
       z-index: 100;
       opacity: 1;
     }
@@ -248,6 +251,10 @@
       gameWon = true;
       redCarFree = true;
       const redCar = document.querySelector('[data-id="red"]');
+      // Force la position de départ en JS (avant l'animation)
+      redCar.style.left = `calc(${redCar.getAttribute('data-x')} * var(--cell-size) + ${redCar.getAttribute('data-x')} * 4px)`;
+      // Forcer le reflow pour que la transition fonctionne
+      void redCar.offsetWidth;
       // 1. Sortie à droite (aucune collision, aucune limite)
       redCar.classList.add('car-anim-exit');
       setTimeout(() => {

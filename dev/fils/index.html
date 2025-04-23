@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Énigme des Fils Électriques</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --grid-width: 13;
+      --grid-height: 13;
+      --cell-size: 40px;
+      --gap-size: 0px; /* Mettre le gap à 0 */
+      --grid-total-width: calc(var(--cell-size) * var(--grid-width)); /* Recalculer sans le gap */
+      --grid-total-height: calc(var(--cell-size) * var(--grid-height)); /* Recalculer sans le gap */
+      --wire-thickness: 8px;
+      --screw-size: 70%;
+    }
+    html, body {
+      overflow: auto;
+      touch-action: none;
+    }
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(var(--grid-width), var(--cell-size));
+      grid-template-rows: repeat(var(--grid-height), var(--cell-size));
+      gap: var(--gap-size);
+      padding: var(--gap-size); /* Mettre le padding à 0 via la variable */
+      background-color: #4a5568;
+      border-radius: 8px;
+      position: relative;
+      width: var(--grid-total-width);
+      height: var(--grid-total-height);
+      margin: 20px;
+    }
+    .grid-cell {
+      background-color: #2d3748;
+      border-radius: 2px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .wall-cell {
+        background-color: #4a5568;
+    }
+    .start-point {
+      width: var(--screw-size);
+      height: var(--screw-size);
+      border-radius: 50%;
+      background-color: inherit;
+      border: none;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), 0 1px 1px rgba(255,255,255,0.2);
+      cursor: pointer;
+      z-index: 10;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .start-point::before {
+        content: '';
+        position: absolute;
+        width: 10%;
+        height: 70%;
+        background-color: rgba(0,0,0,0.3);
+        border-radius: 1px;
+        transform: rotate(45deg);
+        box-shadow: 1px 1px 1px rgba(255,255,255,0.1);
+    }
+    .start-point::after {
+        content: '';
+        position: absolute;
+        width: 70%;
+        height: 10%;
+        background-color: rgba(0,0,0,0.3);
+        border-radius: 1px;
+        box-shadow: 1px 1px 1px rgba(255,255,255,0.1);
+    }
+    .path-segment {
+        position: absolute;
+        background-color: inherit;
+        pointer-events: none;
+        z-index: 5;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .path-h {
+        top: calc(50% - var(--wire-thickness) / 2);
+        bottom: calc(50% - var(--wire-thickness) / 2);
+        left: 0;
+        right: 0;
+    }
+    .path-v {
+        top: 0;
+        bottom: 0;
+        left: calc(50% - var(--wire-thickness) / 2);
+        right: calc(50% - var(--wire-thickness) / 2);
+    }
+
+    /* --- Styles des Coins Simplifiés (Carré) --- */
+    .path-corner {
+        top: 15%;
+        bottom: 15%;
+        left: 15%;
+        right: 15%;
+        border-radius: 20%;
+    }
+    /* --- Fin Styles des Coins Simplifiés --- */
+
+    .point-a, .path-a { background-color: #ef4444; }
+    .point-b, .path-b { background-color: #34d399; }
+    .point-c, .path-c { background-color: #facc15; }
+    .point-d, .path-d { background-color: #60a5fa; }
+    #victory-screen {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 3rem;
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease-in-out;
+    }
+    #victory-screen.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    #reset-button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        transition: background-color 0.2s;
+    }
+    #reset-button:hover {
+        background-color: #dc2626;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen">
+
+  <main class="flex flex-col items-center">
+    <div id="game-board" class="grid-container">
+      <!-- La grille sera générée par JS -->
+    </div>
+    <button id="reset-button">Reset</button>
+    <div id="victory-screen">
+        Victoire !
+    </div>
+  </main>
+
+  <script>
+    const mapLayout = [
+      "###########..",
+      "#.#.#.#.#.#..",
+      "##a###b###c##",
+      "#.#...#.#.#.#",
+      "#############",
+      "#.#.#.#.#.#.#",
+      "##d#######d##",
+      "#.#.#.#.#.#.#",
+      "######b######",
+      "#.#.#.#.#.#.#",
+      "##c#######a##",
+      "#.#.#.#.#.#..",
+      "###########.."
+    ];
+
+    const GRID_HEIGHT = mapLayout.length;
+    const GRID_WIDTH = mapLayout[0].length;
+    const boardElement = document.getElementById('game-board');
+    const victoryScreen = document.getElementById('victory-screen');
+    const resetButton = document.getElementById('reset-button');
+    const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    const gapSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gap-size'));
+
+    const gridState = Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(0));
+    const points = { 'a': { id: 2, colorClass: 'a', coords: [] }, 'b': { id: 3, colorClass: 'b', coords: [] }, 'c': { id: 4, colorClass: 'c', coords: [] }, 'd': { id: 5, colorClass: 'd', coords: [] } };
+
+    function initializeGridFromMap() {
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                const char = mapLayout[y][x];
+                if (char === '.') {
+                    gridState[y][x] = 1;
+                } else if (char === '#') {
+                    gridState[y][x] = 0;
+                } else if (points[char]) {
+                    gridState[y][x] = points[char].id;
+                    points[char].coords.push({ x, y });
+                }
+            }
+        }
+    }
+
+    const paths = {};
+    const completedPaths = new Set();
+
+    let isDrawing = false;
+    let currentPathId = null;
+    let currentPathCoords = [];
+    let startCell = null;
+    let endCell = null;
+    let pointerStartPos = { x: 0, y: 0 };
+    let hasMoved = false;
+
+    function createGrid() {
+        boardElement.innerHTML = '';
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.x = x;
+                cell.dataset.y = y;
+
+                const cellType = gridState[y][x];
+                if (cellType === 1) {
+                    cell.classList.add('wall-cell');
+                } else if (cellType > 1) {
+                    const pointId = Object.keys(points).find(id => points[id].id === cellType);
+                    if (pointId) {
+                        const pointData = points[pointId];
+                        const pointDiv = document.createElement('div');
+                        pointDiv.className = `start-point point-${pointData.colorClass}`;
+                        pointDiv.dataset.pointId = pointId;
+                        pointDiv.dataset.pointX = x;
+                        pointDiv.dataset.pointY = y;
+                        cell.appendChild(pointDiv);
+                        if (!paths[pointId]) paths[pointId] = [];
+                    }
+                }
+                boardElement.appendChild(cell);
+            }
+        }
+        Object.keys(points).forEach(id => {
+            if (!paths[id]) paths[id] = [];
+        });
+    }
+
+    function getCellElement(x, y) {
+        return boardElement.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
+    }
+
+    function startDrawing(event) {
+        const target = event.target.closest('.start-point');
+        if (!target || isDrawing) return;
+
+        const pointId = target.dataset.pointId;
+
+        isDrawing = true;
+        currentPathId = pointId;
+        startCell = { x: parseInt(target.dataset.pointX), y: parseInt(target.dataset.pointY) };
+        const pointData = points[currentPathId];
+        endCell = pointData.coords.find(c => c.x !== startCell.x || c.y !== startCell.y);
+
+        const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        pointerStartPos = { x: clientX, y: clientY };
+        hasMoved = false;
+
+        currentPathCoords = [];
+        boardElement.style.cursor = 'grabbing';
+    }
+
+    function drawPath(event) {
+        if (!isDrawing) return;
+        event.preventDefault();
+
+        const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        const distMoved = Math.sqrt(Math.pow(clientX - pointerStartPos.x, 2) + Math.pow(clientY - pointerStartPos.y, 2));
+
+        if (!hasMoved && distMoved > 5) {
+            hasMoved = true;
+            clearPath(currentPathId);
+            currentPathCoords = [startCell];
+        }
+
+        if (!hasMoved) return;
+
+        const { x, y } = getCoordsFromEvent(event);
+        if (x === null || y === null) return;
+
+        const lastPoint = currentPathCoords[currentPathCoords.length - 1];
+        const prevX = lastPoint ? lastPoint.x : startCell.x;
+        const prevY = lastPoint ? lastPoint.y : startCell.y;
+
+        const dx = Math.abs(x - prevX);
+        const dy = Math.abs(y - prevY);
+
+        if (x === prevX && y === prevY) return;
+
+        if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+            const cellState = gridState[y][x];
+            const isEndPoint = x === endCell.x && y === endCell.y;
+            const isValidPathCell = cellState === 0;
+            const isOwnEndPoint = cellState === points[currentPathId].id && isEndPoint;
+
+            if (isValidPathCell || isOwnEndPoint) {
+                const secondLastPoint = currentPathCoords.length > 1 ? currentPathCoords[currentPathCoords.length - 2] : null;
+
+                if (secondLastPoint && secondLastPoint.x === x && secondLastPoint.y === y) {
+                    const removedPoint = currentPathCoords.pop();
+                    const cellToRemove = getCellElement(removedPoint.x, removedPoint.y);
+                    const segmentToRemove = cellToRemove?.querySelector(`.path-segment.path-${currentPathId}`);
+                    if (segmentToRemove) cellToRemove.removeChild(segmentToRemove);
+                    if (gridState[removedPoint.y][removedPoint.x] === points[currentPathId].id + 10) {
+                        gridState[removedPoint.y][removedPoint.x] = 0;
+                    }
+                    if (currentPathCoords.length > 0) {
+                         const newLastPoint = currentPathCoords[currentPathCoords.length - 1];
+                         const newSecondLast = currentPathCoords.length > 1 ? currentPathCoords[currentPathCoords.length - 2] : null;
+                         drawSegment(newLastPoint.x, newLastPoint.y, newSecondLast, null);
+                    }
+                    return;
+                }
+
+                const isOccupiedByOtherPermanent = cellState > 1 && cellState < 10 && !isOwnEndPoint;
+                const isOccupiedByOtherTemporary = cellState >= 10 && cellState !== points[currentPathId].id + 10;
+                if (isOccupiedByOtherPermanent || isOccupiedByOtherTemporary) {
+                    return;
+                }
+
+                const newPoint = { x, y };
+                currentPathCoords.push(newPoint);
+
+                drawSegment(newPoint.x, newPoint.y, lastPoint, null);
+
+                if (lastPoint && !(lastPoint.x === startCell.x && lastPoint.y === startCell.y)) {
+                     drawSegment(lastPoint.x, lastPoint.y, secondLastPoint, newPoint);
+                }
+
+                if (currentPathCoords.length === 2) {
+                     drawSegment(startCell.x, startCell.y, null, newPoint);
+                }
+
+                if (!isEndPoint) {
+                    gridState[y][x] = points[currentPathId].id + 10;
+                } else {
+                    endDrawing(true);
+                    isDrawing = false;
+                    hasMoved = false;
+                    boardElement.style.cursor = 'default';
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+    }
+
+    function drawSegment(x, y, prevPoint, nextPoint) {
+        const cell = getCellElement(x, y);
+        if (!cell) return;
+
+        // --- Ajout de la condition pour ne pas dessiner sur la case de départ ---
+        if (currentPathId && startCell && x === startCell.x && y === startCell.y) {
+            const existingSegment = cell.querySelector(`.path-segment.path-${currentPathId}`);
+            if (existingSegment) cell.removeChild(existingSegment);
+            return;
+        }
+        // --- Fin de l'ajout ---
+
+        const existingSegment = cell.querySelector(`.path-segment.path-${currentPathId}`);
+        if (existingSegment) cell.removeChild(existingSegment);
+
+        if (x === endCell.x && y === endCell.y) return;
+        if (x === startCell.x && y === startCell.y && !nextPoint) return;
+
+        const segmentDiv = document.createElement('div');
+        segmentDiv.classList.add('path-segment', `path-${currentPathId}`);
+
+        let dirIn = null;
+        if (prevPoint) {
+            if (prevPoint.x < x) dirIn = 'left';
+            else if (prevPoint.x > x) dirIn = 'right';
+            else if (prevPoint.y < y) dirIn = 'up';
+            else if (prevPoint.y > y) dirIn = 'down';
+        }
+
+        let dirOut = null;
+        if (nextPoint) {
+            if (nextPoint.x > x) dirOut = 'right';
+            else if (nextPoint.x < x) dirOut = 'left';
+            else if (nextPoint.y > y) dirOut = 'down';
+            else if (nextPoint.y < y) dirOut = 'up';
+        }
+
+        if (dirIn && dirOut) {
+            if ((dirIn === 'left' || dirIn === 'right') && (dirOut === 'left' || dirOut === 'right')) {
+                segmentDiv.classList.add('path-h');
+            } else if ((dirIn === 'up' || dirIn === 'down') && (dirOut === 'up' || dirOut === 'down')) {
+                segmentDiv.classList.add('path-v');
+            } else {
+                segmentDiv.classList.add('path-corner');
+                if ((dirIn === 'down' && dirOut === 'right') || (dirIn === 'left' && dirOut === 'up')) segmentDiv.classList.add('path-corner-ne');
+                else if ((dirIn === 'down' && dirOut === 'left') || (dirIn === 'right' && dirOut === 'up')) segmentDiv.classList.add('path-corner-nw');
+                else if ((dirIn === 'up' && dirOut === 'right') || (dirIn === 'left' && dirOut === 'down')) segmentDiv.classList.add('path-corner-se');
+                else if ((dirIn === 'up' && dirOut === 'left') || (dirIn === 'right' && dirOut === 'down')) segmentDiv.classList.add('path-corner-sw');
+            }
+        } else if (dirIn) {
+             if (dirIn === 'left' || dirIn === 'right') segmentDiv.classList.add('path-h');
+             else if (dirIn === 'up' || dirIn === 'down') segmentDiv.classList.add('path-v');
+        } else if (dirOut) {
+             if (dirOut === 'left' || dirOut === 'right') segmentDiv.classList.add('path-h');
+             else if (dirOut === 'up' || dirOut === 'down') segmentDiv.classList.add('path-v');
+        }
+
+        if (segmentDiv.classList.contains('path-h') || segmentDiv.classList.contains('path-v') || segmentDiv.classList.contains('path-corner')) {
+             cell.appendChild(segmentDiv);
+        }
+    }
+
+    function handlePointerUp(event) {
+        if (!isDrawing) return;
+
+        if (hasMoved && currentPathCoords.length > 0) {
+            const lastPt = currentPathCoords[currentPathCoords.length - 1];
+             if (!(lastPt.x === startCell.x && lastPt.y === startCell.y)) {
+                const secondLastPt = currentPathCoords.length > 1 ? currentPathCoords[currentPathCoords.length - 2] : startCell;
+                drawSegment(lastPt.x, lastPt.y, secondLastPt, null);
+             }
+        }
+
+        const target = event.target.closest('.start-point');
+        const onStartPoint = target && target.dataset.pointId === currentPathId;
+
+        if (!hasMoved && onStartPoint) {
+            clearPath(currentPathId);
+        } else {
+            const lastPoint = currentPathCoords[currentPathCoords.length - 1];
+            const success = hasMoved && lastPoint && lastPoint.x === endCell.x && lastPoint.y === endCell.y;
+            endDrawing(success);
+        }
+
+        isDrawing = false;
+        hasMoved = false;
+        boardElement.style.cursor = 'default';
+    }
+
+    function endDrawing(success) {
+        if (success) {
+            currentPathCoords.forEach(coord => {
+                if (gridState[coord.y][coord.x] === points[currentPathId].id + 10) {
+                    gridState[coord.y][coord.x] = points[currentPathId].id;
+                }
+            });
+            paths[currentPathId] = [...currentPathCoords];
+            completedPaths.add(currentPathId);
+            checkWinCondition();
+        } else {
+            currentPathCoords.forEach(coord => {
+                if (gridState[coord.y][coord.x] === points[currentPathId].id + 10) {
+                    gridState[coord.y][coord.x] = 0;
+                    const cell = getCellElement(coord.x, coord.y);
+                    const segment = cell?.querySelector(`.path-${currentPathId}`);
+                    if (segment) cell.removeChild(segment);
+                }
+            });
+        }
+
+        currentPathId = null;
+        currentPathCoords = [];
+        startCell = null;
+        endCell = null;
+    }
+
+    function clearPath(pathId) {
+        const pathData = points[pathId];
+        if (!pathData) return;
+
+        const pathColorClass = `path-${pathData.colorClass}`;
+        const segments = boardElement.querySelectorAll(`.path-segment.${pathColorClass}`);
+        segments.forEach(seg => seg.parentElement?.removeChild(seg));
+
+        paths[pathId]?.forEach(coord => {
+            if (gridState[coord.y][coord.x] === pathData.id || gridState[coord.y][coord.x] === pathData.id + 10) {
+                let isAnyStartPoint = false;
+                for(const pId in points) {
+                    if (points[pId].coords.some(c => c.x === coord.x && c.y === coord.y)) {
+                        isAnyStartPoint = true;
+                        gridState[coord.y][coord.x] = points[pId].id;
+                        break;
+                    }
+                }
+                if (!isAnyStartPoint) {
+                    gridState[coord.y][coord.x] = 0;
+                }
+            }
+        });
+        paths[pathId] = [];
+        completedPaths.delete(pathId);
+        if (victoryScreen.classList.contains('show')) {
+            victoryScreen.classList.remove('show');
+        }
+    }
+
+    function resetAllPaths() {
+        Object.keys(points).forEach(id => {
+            clearPath(id);
+        });
+    }
+
+    function getCoordsFromEvent(event) {
+        const rect = boardElement.getBoundingClientRect();
+        const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        const xPixel = clientX - rect.left - gapSize;
+        const yPixel = clientY - rect.top - gapSize;
+        const x = Math.floor(xPixel / (cellSize + gapSize));
+        const y = Math.floor(yPixel / (cellSize + gapSize));
+        if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
+            return { x, y };
+        }
+        return { x: null, y: null };
+    }
+
+    function checkWinCondition() {
+        if (completedPaths.size === Object.keys(points).length) {
+            victoryScreen.classList.add('show');
+            console.log("Victoire !");
+        }
+    }
+
+    initializeGridFromMap();
+    createGrid();
+
+    resetButton.addEventListener('click', resetAllPaths);
+
+    boardElement.addEventListener('pointerdown', startDrawing);
+    window.addEventListener('pointermove', drawPath);
+    window.addEventListener('pointerup', handlePointerUp);
+    boardElement.addEventListener('dragstart', (e) => e.preventDefault());
+    document.addEventListener('pointerleave', () => {
+        if (isDrawing) {
+            handlePointerUp({ target: null });
+        }
+    });
+
+  </script>
+</body>
+</html>

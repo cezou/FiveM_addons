@@ -9,7 +9,7 @@
     :root {
       --grid-width: 13;
       --grid-height: 13;
-      --cell-size: 40px;
+      --cell-size: 50px;
       --gap-size: 0px; /* Mettre le gap à 0 */
       --grid-total-width: calc(var(--cell-size) * var(--grid-width)); /* Recalculer sans le gap */
       --grid-total-height: calc(var(--cell-size) * var(--grid-height)); /* Recalculer sans le gap */
@@ -114,24 +114,31 @@
     .point-d, .path-d { background-color: #60a5fa; }
     #victory-screen {
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background-color: rgba(0, 0, 0, 0.8);
+        top: 50%; /* Centrer verticalement */
+        left: 50%; /* Centrer horizontalement */
+        transform: translate(-50%, -50%) scale(0); /* Centrer et réduire initialement */
+        background-color: #ef4444; /* Fond rouge */
         color: white;
+        padding: 2rem 4rem; /* Ajouter du padding */
+        border-radius: 8px; /* Coins arrondis */
         display: flex;
         justify-content: center;
         align-items: center;
         font-size: 3rem;
+        font-weight: bold; /* Texte en gras */
         z-index: 1000;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.5s ease-in-out;
+        transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out; /* Transition pour opacité et zoom */
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); /* Ombre portée */
     }
     #victory-screen.show {
         opacity: 1;
+        transform: translate(-50%, -50%) scale(1); /* Agrandir à la taille normale */
         pointer-events: auto;
     }
     #reset-button {
-        margin-top: 20px;
+        margin-top: 10px;
         padding: 10px 20px;
         background-color: #ef4444;
         color: white;
@@ -145,6 +152,16 @@
     #reset-button:hover {
         background-color: #dc2626;
     }
+
+    /* Styles pour l'état gagné */
+    .game-won #reset-button {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none; /* Désactive les clics */
+    }
+    .game-won #game-board {
+        pointer-events: none; /* Désactive les clics sur la grille */
+    }
   </style>
 </head>
 <body class="bg-gray-900 flex items-center justify-center min-h-screen">
@@ -155,7 +172,7 @@
     </div>
     <button id="reset-button">Reset</button>
     <div id="victory-screen">
-        Victoire !
+		6357
     </div>
   </main>
 
@@ -252,6 +269,12 @@
     }
 
     function startDrawing(event) {
+        // --- Ajout: Vérifier si le jeu est gagné ---
+        if (document.body.classList.contains('game-won')) {
+            return;
+        }
+        // --- Fin Ajout ---
+
         const target = event.target.closest('.start-point');
         if (!target || isDrawing) return;
 
@@ -500,12 +523,14 @@
         });
         paths[pathId] = [];
         completedPaths.delete(pathId);
-        if (victoryScreen.classList.contains('show')) {
-            victoryScreen.classList.remove('show');
-        }
     }
 
     function resetAllPaths() {
+        // --- Ajout: Vérifier si le jeu est gagné ---
+        if (document.body.classList.contains('game-won')) {
+            return;
+        }
+        // --- Fin Ajout ---
         Object.keys(points).forEach(id => {
             clearPath(id);
         });
@@ -527,8 +552,11 @@
 
     function checkWinCondition() {
         if (completedPaths.size === Object.keys(points).length) {
-            victoryScreen.classList.add('show');
-            console.log("Victoire !");
+            if (!victoryScreen.classList.contains('show')) {
+                 victoryScreen.classList.add('show');
+                 document.body.classList.add('game-won'); // Ajouter la classe au body
+                 console.log("6357");
+            }
         }
     }
 

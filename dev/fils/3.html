@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Énigme des Fils Électriques</title>
+  <title>Énigme des Fils - Labyrinthe</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
-      --grid-width: 13;
-      --grid-height: 13;
-      --cell-size: 50px;
-      --gap-size: 0px; /* Mettre le gap à 0 */
-      --grid-total-width: calc(var(--cell-size) * var(--grid-width)); /* Recalculer sans le gap */
-      --grid-total-height: calc(var(--cell-size) * var(--grid-height)); /* Recalculer sans le gap */
-      --wire-thickness: 8px;
-      --screw-size: 70%;
+      --grid-width: 19;
+      --grid-height: 19;
+      --cell-size: 35px;
+      --gap-size: 0px;
+      --grid-total-width: calc(var(--cell-size) * var(--grid-width));
+      --grid-total-height: calc(var(--cell-size) * var(--grid-height));
+      --wire-thickness: 6px;
+      --screw-size: 65%;
     }
     html, body {
       overflow: auto;
@@ -25,7 +25,7 @@
       grid-template-columns: repeat(var(--grid-width), var(--cell-size));
       grid-template-rows: repeat(var(--grid-height), var(--cell-size));
       gap: var(--gap-size);
-      padding: var(--gap-size); /* Mettre le padding à 0 via la variable */
+      padding: var(--gap-size);
       background-color: #4a5568;
       border-radius: 8px;
       position: relative;
@@ -97,8 +97,6 @@
         left: calc(50% - var(--wire-thickness) / 2);
         right: calc(50% - var(--wire-thickness) / 2);
     }
-
-    /* --- Styles des Coins Simplifiés (Carré) --- */
     .path-corner {
         top: 15%;
         bottom: 15%;
@@ -106,35 +104,30 @@
         right: 15%;
         border-radius: 20%;
     }
-    /* --- Fin Styles des Coins Simplifiés --- */
-
     .point-a, .path-a { background-color: #ef4444; }
-    .point-b, .path-b { background-color: #34d399; }
-    .point-c, .path-c { background-color: #facc15; }
-    .point-d, .path-d { background-color: #60a5fa; }
     #victory-screen {
         position: fixed;
-        top: 50%; /* Centrer verticalement */
-        left: 50%; /* Centrer horizontalement */
-        transform: translate(-50%, -50%) scale(0); /* Centrer et réduire initialement */
-        background-color: #ef4444; /* Fond rouge */
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        background-color: #ef4444;
         color: white;
-        padding: 2rem 4rem; /* Ajouter du padding */
-        border-radius: 8px; /* Coins arrondis */
+        padding: 2rem 4rem;
+        border-radius: 8px;
         display: flex;
         justify-content: center;
         align-items: center;
         font-size: 3rem;
-        font-weight: bold; /* Texte en gras */
+        font-weight: bold;
         z-index: 1000;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out; /* Transition pour opacité et zoom */
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); /* Ombre portée */
+        transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
     }
     #victory-screen.show {
         opacity: 1;
-        transform: translate(-50%, -50%) scale(1); /* Agrandir à la taille normale */
+        transform: translate(-50%, -50%) scale(1);
         pointer-events: auto;
     }
     #reset-button {
@@ -152,15 +145,13 @@
     #reset-button:hover {
         background-color: #dc2626;
     }
-
-    /* Styles pour l'état gagné */
     .game-won #reset-button {
         opacity: 0.5;
         cursor: not-allowed;
-        pointer-events: none; /* Désactive les clics */
+        pointer-events: none;
     }
     .game-won #game-board {
-        pointer-events: none; /* Désactive les clics sur la grille */
+        pointer-events: none;
     }
   </style>
 </head>
@@ -172,25 +163,31 @@
     </div>
     <button id="reset-button">Reset</button>
     <div id="victory-screen">
-		6357
+		5
     </div>
   </main>
 
   <script>
     const mapLayout = [
-      "###########..",
-      "#.#.#.#.#.#..",
-      "##a###b###c##",
-      "#.#...#.#.#.#",
-      "#############",
-      "#.#.#.#.#.#.#",
-      "##d#######d##",
-      "#.#.#.#.#.#.#",
-      "######b######",
-      "#.#.#.#.#.#.#",
-      "##c#######a##",
-      "#.#.#.#.#.#..",
-      "###########.."
+      "###################",
+      "#a..#.......#.....#",
+      "###.#.#####.#.###.#",
+      "#...#.#...#.#.#...#",
+      "#.###.#.#.#.#.#.###",
+      "#.#...#.#.#...#...#",
+      "#.#.###.#.#####.#.#",
+      "#.#.#...#.....#.#.#",
+      "#.#.#.###.#.#.#.#.#",
+      "#...#...#.#.#...#.#",
+      "#####.###.#.#####.#",
+      "#.....#...#.#.....#",
+      "#.#####.###.#.#####",
+      "#.#...#.....#.#...#",
+      "#.#.#.#########.#.#",
+      "#...#.......#...#.#",
+      "###.#.#.#####.###.#",
+      "#.....#.......#...a",
+      "###################"
     ];
 
     const GRID_HEIGHT = mapLayout.length;
@@ -202,19 +199,21 @@
     const gapSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gap-size'));
 
     const gridState = Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(0));
-    const points = { 'a': { id: 2, colorClass: 'a', coords: [] }, 'b': { id: 3, colorClass: 'b', coords: [] }, 'c': { id: 4, colorClass: 'c', coords: [] }, 'd': { id: 5, colorClass: 'd', coords: [] } };
+    const points = { 'a': { id: 2, colorClass: 'a', coords: [] } };
 
     function initializeGridFromMap() {
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 const char = mapLayout[y][x];
                 if (char === '.') {
-                    gridState[y][x] = 1;
-                } else if (char === '#') {
                     gridState[y][x] = 0;
+                } else if (char === '#') {
+                    gridState[y][x] = 1;
                 } else if (points[char]) {
                     gridState[y][x] = points[char].id;
                     points[char].coords.push({ x, y });
+                } else {
+                    gridState[y][x] = 1;
                 }
             }
         }
@@ -269,11 +268,9 @@
     }
 
     function startDrawing(event) {
-        // --- Ajout: Vérifier si le jeu est gagné ---
         if (document.body.classList.contains('game-won')) {
             return;
         }
-        // --- Fin Ajout ---
 
         const target = event.target.closest('.start-point');
         if (!target || isDrawing) return;
@@ -313,6 +310,16 @@
 
         const { x, y } = getCoordsFromEvent(event);
         if (x === null || y === null) return;
+
+        const currentCellState = gridState[y][x];
+        if (currentCellState === 1) {
+            endDrawing(false);
+            isDrawing = false;
+            hasMoved = false;
+            boardElement.style.cursor = 'default';
+            console.log("Collision mur!");
+            return;
+        }
 
         const lastPoint = currentPathCoords[currentPathCoords.length - 1];
         const prevX = lastPoint ? lastPoint.x : startCell.x;
@@ -386,13 +393,11 @@
         const cell = getCellElement(x, y);
         if (!cell) return;
 
-        // --- Ajout de la condition pour ne pas dessiner sur la case de départ ---
         if (currentPathId && startCell && x === startCell.x && y === startCell.y) {
             const existingSegment = cell.querySelector(`.path-segment.path-${currentPathId}`);
             if (existingSegment) cell.removeChild(existingSegment);
             return;
         }
-        // --- Fin de l'ajout ---
 
         const existingSegment = cell.querySelector(`.path-segment.path-${currentPathId}`);
         if (existingSegment) cell.removeChild(existingSegment);
@@ -526,11 +531,9 @@
     }
 
     function resetAllPaths() {
-        // --- Ajout: Vérifier si le jeu est gagné ---
         if (document.body.classList.contains('game-won')) {
             return;
         }
-        // --- Fin Ajout ---
         Object.keys(points).forEach(id => {
             clearPath(id);
         });
@@ -554,8 +557,8 @@
         if (completedPaths.size === Object.keys(points).length) {
             if (!victoryScreen.classList.contains('show')) {
                  victoryScreen.classList.add('show');
-                 document.body.classList.add('game-won'); // Ajouter la classe au body
-                 console.log("6357");
+                 document.body.classList.add('game-won');
+                 console.log("LABYRINTHE");
             }
         }
     }

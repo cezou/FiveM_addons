@@ -3,7 +3,7 @@ let dragging = null;
 let dragStart = { x: 0, y: 0, mouse: 0 };
 let gameWon = false;
 let redCarFree = false;
-const gapSize = 0; // Use 10 to match CSS gap
+const gapSize = 0; 
 
 /**
  * @brief Loads and initializes a game level from a map file.
@@ -32,11 +32,10 @@ async function loadLevel(mapPath) {
             const dir = vehicle.dir === 'horizontal' ? 'h' : 'v';
             let id;
 
-            if (vehicle.player) {
+            if (vehicle.player)
                 id = 'red';
-            } else {
+            else 
                 id = `${dir}${++carCounter}`;
-            }
             cars.push({
                 id: id,
                 x: vehicle.pos[0],
@@ -64,12 +63,11 @@ function initializeGameBoard() {
 
     gridContainer.className = "absolute inset-0 grid grid-cols-6 grid-rows-6 gap-[10px]";
     gameBoardElement.appendChild(gridContainer);
-    for (let y = 0; y < 6; y++) {
+    for (let y = 0; y < 6; y++) 
         for (let x = 0; x < 6; x++) {
             const cell = document.createElement('div');
             gridContainer.appendChild(cell);
         }
-    }
     exitHole.className = "absolute right-[-16px] top-[calc(var(--cell-size)*2 + 10px*2)] w-4 h-[calc(var(--cell-size))] rounded-r-lg border-2 border-transparent";
     gameBoardElement.appendChild(exitHole);
     cars.forEach(car => {
@@ -106,7 +104,8 @@ function getOccupiedCells(excludeId = null) {
     const occ = new Set();
 
     cars.forEach(car => {
-        if (car.id === excludeId) return;
+        if (car.id === excludeId)
+			return;
         for (let i = 0; i < car.length; i++) {
             const cx = car.x + (car.dir === 'h' ? i : 0);
             const cy = car.y + (car.dir === 'v' ? i : 0);
@@ -136,7 +135,8 @@ function clamp(val, min, max) {
 function updateCarDiv(car) {
     const carDiv = document.querySelector(`[data-id="${car.id}"]`);
 
-    if (!carDiv) return;
+    if (!carDiv)
+		return;
     carDiv.style.left = `calc(${car.x} * var(--cell-size) + ${car.x} * ${gapSize}px)`;
     carDiv.style.top = `calc(${car.y} * var(--cell-size) + ${car.y} * ${gapSize}px)`;
     carDiv.setAttribute('data-x', car.x);
@@ -149,14 +149,17 @@ function updateCarDiv(car) {
  * @param {MouseEvent} e The mouse down event object.
  */
 function onMouseDown(e) {
-    if (gameWon) return;
+    if (gameWon)
+		return;
     const carDiv = e.target.closest('.car');
 
-    if (!carDiv) return;
+    if (!carDiv)
+		return;
     e.preventDefault();
     const id = carDiv.getAttribute('data-id');
     const car = cars.find(c => c.id === id);
-    if (!car) return;
+    if (!car)
+		return;
     dragging = { car, carDiv };
     dragStart.x = car.x;
     dragStart.y = car.y;
@@ -224,10 +227,8 @@ function onMouseUp() {
                             dragging.car.id === 'red' &&
                             dragging.car.y === 2 &&
                             dragging.car.x === 6;
-
-    if (winConditionMet) {
+    if (winConditionMet)
         triggerRedCarWin();
-    }
     dragging = null;
     document.body.style.userSelect = '';
 }

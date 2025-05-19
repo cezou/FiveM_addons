@@ -128,7 +128,7 @@ User Agent: ${browserInfo.userAgent}`);
     console.error('Erreur d\'accès au microphone:', error);
     
     let errorMessage = `${browserInfo.name} : ${browserInfo.version} : ${browserInfo.engine} : ${browserInfo.hasWebAudio ? 'Oui' : 'Non'} : ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'} : ${browserInfo.userAgent}`;
-
+	alert(errorMessage);
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
       errorMessage = `
 
@@ -149,7 +149,6 @@ ${errorMessage}
 Note FiveM: Le navigateur intégré à FiveM peut avoir des limitations concernant l'accès au microphone.`;
     }
     
-    console.log(errorMessage);
     
     // Close audio context if it was created
     if (audioContext) {

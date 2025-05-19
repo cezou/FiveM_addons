@@ -124,87 +124,70 @@ async function startRecording() {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   } catch (error) {
     const browserInfo = getBrowserInfo();
-    console.error('Erreur lors de la création du contexte audio:', error);
-    alert(`Votre navigateur ne supporte pas l'API Web Audio requise pour cette application.
-    
-Informations du navigateur:
-- Nom: ${browserInfo.name}
-- Version: ${browserInfo.version}
-- Moteur: ${browserInfo.engine}
-- Support Web Audio: ${browserInfo.hasWebAudio ? 'Oui' : 'Non'}
-- Support getUserMedia: ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'}
-
-User Agent: ${browserInfo.userAgent}`);
+    console.error('Erreur audio:', error);
+    alert(`API Audio non supportée: ${browserInfo.name}`);
     return;
   }
   
   // Microphone access
   let stream;
   try {
-    // For FiveM, add special handling
     const browserInfo = getBrowserInfo();
     
+    // Try with multiple constraint options for maximum compatibility
     if (browserInfo.isFiveM) {
-      console.log("FiveM browser detected, using special handling");
-      // Add a more specific message for FiveM users
-      alert(`Navigateur FiveM détecté!
-
-Pour utiliser le micro dans FiveM:
-1. Une boîte de dialogue apparaîtra dans la console (accessible avec F8)
-2. Cliquez sur "Allow" pour autoriser l'accès au microphone
-3. Si aucune boîte de dialogue n'apparaît, appuyez sur F8 pour vérifier
-
-Cliquez sur OK pour continuer...`);
+      console.log("FiveM browser detected");
+      // FiveM: try with absolute minimal constraints
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      } catch (innerError) {
+        console.log("Trying with older API...");
+        // Try deprecated API as fallback
+        if (navigator.getUserMedia) {
+          return new Promise((resolve, reject) => {
+            navigator.getUserMedia({audio: true},
+              function(s) { 
+                stream = s;
+                resolve(s);
+              },
+              function(err) { reject(err); }
+            );
+          });
+        } else {
+          throw innerError;
+        }
+      }
+    } else {
+      // For regular browsers, try with normal constraints
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseSuppression: false,
+          latency: 0
+        }
+      });
     }
-    
-    // Wait for the user to see the message and possibly handle the permission dialog
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Try to get user media with audio with more basic constraints for FiveM
-    const constraints = 
-      {audio : {}
-      };
-    
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
     
   } catch (error) {
     const browserInfo = getBrowserInfo();
-    console.error('Erreur d\'accès au microphone:', error);
+    console.error('Erreur microphone:', error);
     
-    let errorMessage = "";
-    
-    // Special handling for FiveM
+    // Simplified error message
     if (browserInfo.isFiveM) {
-      errorMessage = `${error.name} - ${error.message}`;
+      alert(`Erreur micro: ${error.name}. Vérifiez F8.`);
     } else {
-      errorMessage = `${browserInfo.name} : ${browserInfo.version} : ${browserInfo.engine} : ${browserInfo.hasWebAudio ? 'Oui' : 'Non'} : ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'}`;
-      
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = `
-
-${errorMessage}`;
-      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        errorMessage = `Aucun microphone détecté sur votre appareil.
-
-${errorMessage}`;
-      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        errorMessage = `Votre microphone est peut-être utilisé par une autre application.
-
-${errorMessage}`;
-      } else if (error.name === 'NotSupportedError') {
-        errorMessage = `Votre navigateur ne prend pas en charge l'accès au microphone ou les contraintes demandées sont incompatibles.
-
-${errorMessage}
-
-Note FiveM: Le navigateur intégré à FiveM peut avoir des limitations concernant l'accès au microphone.`;
+      let msg = `${error.name} - Micro non accessible.`;
+      if (error.name === 'NotAllowedError') {
+        msg = "Accès au micro refusé.";
+      } else if (error.name === 'NotFoundError') {
+        msg = "Aucun micro détecté.";
       }
+      alert(msg);
     }
     
-    alert(errorMessage);
-    
-    // Close audio context if it was created
     if (audioContext) {
-      audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
+      audioContext.close().catch(e => console.error('Erreur fermeture audio:', e));
     }
     return;
   }
@@ -213,54 +196,29 @@ Note FiveM: Le navigateur intégré à FiveM peut avoir des limitations concerna
   try {
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
-  } catch (error) {
-    console.error('Erreur lors de la création de l\'analyseur audio:', error);
-    alert('Erreur lors de la configuration de l\'analyseur audio.');
-    stream.getTracks().forEach(track => track.stop());
-    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
-    return;
-  }
-  
-  // Connect microphone to analyzer
-  try {
+    
+    // Connect microphone to analyzer
     microphone = audioContext.createMediaStreamSource(stream);
     microphone.connect(analyser);
-  } catch (error) {
-    console.error('Erreur lors de la connexion du microphone:', error);
-    alert('Impossible de connecter le microphone à l\'analyseur audio.');
-    stream.getTracks().forEach(track => track.stop());
-    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
-    return;
-  }
-  
-  // JavaScript node setup
-  try {
+    
+    // JavaScript node setup
     javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
     analyser.connect(javascriptNode);
     javascriptNode.connect(audioContext.destination);
-  } catch (error) {
-    console.error('Erreur lors de la création du nœud de traitement audio:', error);
-    alert('Impossible de configurer le processeur audio.');
-    stream.getTracks().forEach(track => track.stop());
-    microphone.disconnect();
-    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
-    return;
-  }
-  
-  // Set up audio processing
-  try {
+    
+    // Set up audio processing
     javascriptNode.onaudioprocess = processAudio;
     
     // Update UI
     isRecording = true;
-    startButton.textContent = 'Arrêter l\'enregistrement';
+    startButton.textContent = 'Arrêter';
     startButton.classList.remove('bg-green-600', 'hover:bg-green-700');
     startButton.classList.add('bg-red-600', 'hover:bg-red-700');
     
     console.log('Recording started');
   } catch (error) {
-    console.error('Erreur lors de la configuration du traitement audio:', error);
-    alert('Une erreur est survenue lors du lancement de l\'enregistrement.');
+    console.error('Erreur config audio:', error);
+    alert('Erreur traitement audio');
     cleanupAudioResources(stream);
   }
 }

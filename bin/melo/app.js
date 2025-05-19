@@ -161,13 +161,8 @@ Cliquez sur OK pour continuer...`);
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Try to get user media with audio with more basic constraints for FiveM
-    const constraints = browserInfo.isFiveM ? 
-      { audio: true } : // Simplest constraints for FiveM
-      { audio: {        // More specific for other browsers
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        }
+    const constraints = 
+      {audio : {}
       };
     
     stream = await navigator.mediaDevices.getUserMedia(constraints);

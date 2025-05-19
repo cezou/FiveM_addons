@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Détection de Mélodie</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-black text-white">
+  <div class="min-h-screen flex flex-col items-center justify-center relative">
+    <!-- Background pattern -->
+    <div class="bg-pattern absolute inset-0 opacity-70 blur-sm"></div>
+    
+    <!-- Main content -->
+    <div class="z-10 flex flex-col items-center">
+      <h1 class="text-4xl mb-8">Détection de Mélodie</h1>
+      
+      <div id="note-display" class="text-8xl font-bold mb-8 h-32 flex items-center justify-center">
+        --
+      </div>
+      
+      <div id="frequency-display" class="text-2xl mb-8">
+        Fréquence: -- Hz
+      </div>
+      
+      <button id="start-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-xl mb-4 transition">
+        Commencer l'enregistrement
+      </button>
+      
+      <div id="instruction" class="text-center max-w-md mt-4 text-gray-300">
+        Chantez une note pour voir sa détection en temps réel
+      </div>
+    </div>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>

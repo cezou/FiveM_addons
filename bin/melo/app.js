@@ -159,7 +159,7 @@ ${errorMessage}
 Note FiveM: Le navigateur intégré à FiveM peut avoir des limitations concernant l'accès au microphone.`;
     }
     
-    alert(errorMessage);
+    console.log(errorMessage);
     
     // Close audio context if it was created
     if (audioContext) {

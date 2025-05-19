@@ -51,27 +51,80 @@ function toggleRecording() {
  * Start the microphone recording and pitch detection
  */
 async function startRecording() {
+  // Audio context initialization
   try {
-    // Create audio context
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (error) {
+    console.error('Erreur lors de la création du contexte audio:', error);
+    alert('Votre navigateur ne supporte pas l\'API Web Audio requise pour cette application.');
+    return;
+  }
+  
+  // Microphone access
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    console.error('Erreur d\'accès au microphone:', error);
     
-    // Get microphone access
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Handle specific permission errors
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      alert('Vous avez refusé l\'accès au microphone. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      alert('Aucun microphone détecté sur votre appareil.');
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      alert('Votre microphone est peut-être utilisé par une autre application.');
+    } else {
+      alert('Impossible d\'accéder au microphone. Erreur: ' + error.message);
+    }
     
-    // Create analyser node
+    // Close audio context if it was created
+    if (audioContext) {
+      audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
+    }
+    return;
+  }
+  
+  // Analyzer setup
+  try {
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
-    
-    // Connect microphone to analyser
+  } catch (error) {
+    console.error('Erreur lors de la création de l\'analyseur audio:', error);
+    alert('Erreur lors de la configuration de l\'analyseur audio.');
+    stream.getTracks().forEach(track => track.stop());
+    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
+    return;
+  }
+  
+  // Connect microphone to analyzer
+  try {
     microphone = audioContext.createMediaStreamSource(stream);
     microphone.connect(analyser);
-    
-    // Create processor node for audio analysis
+  } catch (error) {
+    console.error('Erreur lors de la connexion du microphone:', error);
+    alert('Impossible de connecter le microphone à l\'analyseur audio.');
+    stream.getTracks().forEach(track => track.stop());
+    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
+    return;
+  }
+  
+  // JavaScript node setup
+  try {
     javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
     analyser.connect(javascriptNode);
     javascriptNode.connect(audioContext.destination);
-    
-    // Process audio data
+  } catch (error) {
+    console.error('Erreur lors de la création du nœud de traitement audio:', error);
+    alert('Impossible de configurer le processeur audio.');
+    stream.getTracks().forEach(track => track.stop());
+    microphone.disconnect();
+    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
+    return;
+  }
+  
+  // Set up audio processing
+  try {
     javascriptNode.onaudioprocess = processAudio;
     
     // Update UI
@@ -82,8 +135,9 @@ async function startRecording() {
     
     console.log('Recording started');
   } catch (error) {
-    console.error('Error accessing microphone:', error);
-    alert('Impossible d\'accéder au microphone. Vérifiez les permissions de votre navigateur.');
+    console.error('Erreur lors de la configuration du traitement audio:', error);
+    alert('Une erreur est survenue lors du lancement de l\'enregistrement.');
+    cleanupAudioResources(stream);
   }
 }
 
@@ -173,4 +227,31 @@ function getNote(frequency) {
   const noteName = noteFrequencies[noteIndex].note;
   
   return `${noteName}${octaveNumber}`;
+}
+
+/**
+ * Helper function to clean up audio resources
+ * @param {MediaStream} stream - The media stream to clean up
+ */
+function cleanupAudioResources(stream) {
+  if (stream && stream.getTracks) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+  
+  if (javascriptNode) {
+    javascriptNode.onaudioprocess = null;
+    javascriptNode.disconnect();
+  }
+  
+  if (analyser) {
+    analyser.disconnect();
+  }
+  
+  if (microphone) {
+    microphone.disconnect();
+  }
+  
+  if (audioContext) {
+    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
+  }
 }

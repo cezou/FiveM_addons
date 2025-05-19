@@ -175,19 +175,7 @@ Cliquez sur OK pour continuer...`);
     
     // Special handling for FiveM
     if (browserInfo.isFiveM) {
-      errorMessage = `Erreur d'accès au microphone dans FiveM:
-      
-Causes possibles:
-1. Vous avez refusé l'autorisation dans la boîte de dialogue F8
-2. Aucun microphone n'est détecté sur votre système
-3. La version de FiveM (${browserInfo.version}) a des restrictions de confidentialité
-
-Conseils:
-• Essayez de redémarrer FiveM
-• Vérifiez que votre micro fonctionne dans d'autres applications
-• Vérifiez que vous n'avez pas bloqué l'accès au micro dans les paramètres Windows
-
-Détails techniques: ${error.name} - ${error.message}`;
+      errorMessage = `${error.name} - ${error.message}`;
     } else {
       errorMessage = `${browserInfo.name} : ${browserInfo.version} : ${browserInfo.engine} : ${browserInfo.hasWebAudio ? 'Oui' : 'Non'} : ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'}`;
       

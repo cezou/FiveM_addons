@@ -127,20 +127,10 @@ User Agent: ${browserInfo.userAgent}`);
     const browserInfo = getBrowserInfo();
     console.error('Erreur d\'accès au microphone:', error);
     
-    let errorMessage = `Erreur d'accès au microphone: ${error.name} - ${error.message}
+    let errorMessage = `${browserInfo.name} : ${browserInfo.version} : ${browserInfo.engine} : ${browserInfo.hasWebAudio ? 'Oui' : 'Non'} : ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'} : ${browserInfo.userAgent}`;
 
-Informations du navigateur:
-- Nom: ${browserInfo.name}
-- Version: ${browserInfo.version}
-- Moteur: ${browserInfo.engine}
-- Support Web Audio: ${browserInfo.hasWebAudio ? 'Oui' : 'Non'}
-- Support getUserMedia: ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'}
-
-User Agent: ${browserInfo.userAgent}`;
-
-    // Handle specific permission errors
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      errorMessage = `Vous avez refusé l'accès au microphone. Veuillez autoriser l'accès dans les paramètres de votre navigateur.
+      errorMessage = `
 
 ${errorMessage}`;
     } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {

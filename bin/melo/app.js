@@ -48,6 +48,53 @@ function toggleRecording() {
 }
 
 /**
+ * Detects browser name and version
+ * @returns {Object} Object containing browser name and version
+ */
+function getBrowserInfo() {
+  const userAgent = navigator.userAgent;
+  let browserName = "Unknown";
+  let browserVersion = "Unknown";
+  let browserEngine = "Unknown";
+  
+  // Check for Chrome or Chromium-based browsers
+  if (userAgent.match(/chrome|chromium|crios/i)) {
+    browserName = "Chrome/Chromium";
+    browserEngine = "Blink";
+  } 
+  // Check for Firefox
+  else if (userAgent.match(/firefox|fxios/i)) {
+    browserName = "Firefox";
+    browserEngine = "Gecko";
+  } 
+  // Check for Safari
+  else if (userAgent.match(/safari/i)) {
+    browserName = "Safari";
+    browserEngine = "WebKit";
+  } 
+  // Check for IE/Edge
+  else if (userAgent.match(/msie|trident|edge/i)) {
+    browserName = userAgent.indexOf("Edge") > -1 ? "Edge" : "Internet Explorer";
+    browserEngine = "EdgeHTML/Trident";
+  }
+  
+  // Extract version
+  const match = userAgent.match(/(chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+  if (match && match.length >= 3) {
+    browserVersion = match[2];
+  }
+  
+  return {
+    name: browserName,
+    version: browserVersion,
+    engine: browserEngine,
+    userAgent: userAgent,
+    hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    hasWebAudio: !!(window.AudioContext || window.webkitAudioContext)
+  };
+}
+
+/**
  * Start the microphone recording and pitch detection
  */
 async function startRecording() {
@@ -55,30 +102,64 @@ async function startRecording() {
   try {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   } catch (error) {
+    const browserInfo = getBrowserInfo();
     console.error('Erreur lors de la création du contexte audio:', error);
-    alert('Votre navigateur ne supporte pas l\'API Web Audio requise pour cette application.');
+    alert(`Votre navigateur ne supporte pas l'API Web Audio requise pour cette application.
+    
+Informations du navigateur:
+- Nom: ${browserInfo.name}
+- Version: ${browserInfo.version}
+- Moteur: ${browserInfo.engine}
+- Support Web Audio: ${browserInfo.hasWebAudio ? 'Oui' : 'Non'}
+- Support getUserMedia: ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'}
+
+User Agent: ${browserInfo.userAgent}`);
     return;
   }
   
   // Microphone access
   let stream;
   try {
-	// attendre 1 seconde
-	await new Promise(resolve => setTimeout(resolve, 1000));
-		stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // attendre 1 seconde
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (error) {
+    const browserInfo = getBrowserInfo();
     console.error('Erreur d\'accès au microphone:', error);
     
+    let errorMessage = `Erreur d'accès au microphone: ${error.name} - ${error.message}
+
+Informations du navigateur:
+- Nom: ${browserInfo.name}
+- Version: ${browserInfo.version}
+- Moteur: ${browserInfo.engine}
+- Support Web Audio: ${browserInfo.hasWebAudio ? 'Oui' : 'Non'}
+- Support getUserMedia: ${browserInfo.hasGetUserMedia ? 'Oui' : 'Non'}
+
+User Agent: ${browserInfo.userAgent}`;
+
     // Handle specific permission errors
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      alert('Vous  refusé l\'accès au microphone. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
-    } else if (error.navezame === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-      alert('Aucun microphone détecté sur votre appareil.');
+      errorMessage = `Vous avez refusé l'accès au microphone. Veuillez autoriser l'accès dans les paramètres de votre navigateur.
+
+${errorMessage}`;
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      errorMessage = `Aucun microphone détecté sur votre appareil.
+
+${errorMessage}`;
     } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-      alert('Votre microphone est peut-être utilisé par une autre application.');
-    } else {
-      alert('Impossible d\'accéder au microphone. Erreur: ' + error.message);
+      errorMessage = `Votre microphone est peut-être utilisé par une autre application.
+
+${errorMessage}`;
+    } else if (error.name === 'NotSupportedError') {
+      errorMessage = `Votre navigateur ne prend pas en charge l'accès au microphone ou les contraintes demandées sont incompatibles.
+
+${errorMessage}
+
+Note FiveM: Le navigateur intégré à FiveM peut avoir des limitations concernant l'accès au microphone.`;
     }
+    
+    alert(errorMessage);
     
     // Close audio context if it was created
     if (audioContext) {

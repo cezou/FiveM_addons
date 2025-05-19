@@ -65,7 +65,7 @@ async function startRecording() {
   try {
 	// attendre 1 seconde
 	await new Promise(resolve => setTimeout(resolve, 1000));
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+		stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (error) {
     console.error('Erreur d\'accès au microphone:', error);
     

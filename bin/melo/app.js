@@ -63,14 +63,16 @@ async function startRecording() {
   // Microphone access
   let stream;
   try {
+	// attendre 1 seconde
+	await new Promise(resolve => setTimeout(resolve, 1000));
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (error) {
     console.error('Erreur d\'accès au microphone:', error);
     
     // Handle specific permission errors
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      alert('Vous avez refusé l\'accès au microphone. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
-    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      alert('Vous  refusé l\'accès au microphone. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
+    } else if (error.navezame === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
       alert('Aucun microphone détecté sur votre appareil.');
     } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
       alert('Votre microphone est peut-être utilisé par une autre application.');

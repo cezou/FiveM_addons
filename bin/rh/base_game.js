@@ -86,7 +86,7 @@ function initializeGameBoard() {
         if (car.id === 'red') {
             const label = document.createElement('div');
             label.className = 'red-label';
-            label.textContent = '9999';
+            label.textContent = '8882';
             carDiv.appendChild(label);
         }
         gameBoardElement.appendChild(carDiv);

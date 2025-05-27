@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mélodie Musicale</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-white overflow-hidden">
+  <!-- Background pattern with bg.png -->
+  <div id="bg-pattern" class="bg-pattern absolute inset-0"></div>
+  
+  <!-- Note duration visualization overlay -->
+  <div id="duration-overlay" class="duration-overlay absolute inset-0 flex items-center justify-center">
+    <!-- This will be populated by JavaScript based on current note duration -->
+  </div>
+    <!-- Success code display (hidden by default) -->
+  <div id="success-code" class="hidden fixed inset-0 bg-black flex items-center justify-center z-50">
+    <div class="text-white text-8xl font-mono">4379</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

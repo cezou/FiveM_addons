@@ -1,339 +1,331 @@
 /**
- * Musical note pitch detection
- * Uses Web Audio API to capture microphone input and detect musical notes
+ * Musical Melody Game
+ * Players must play specific notes with correct durations using keyboard keys 1-9
  */
 
-// Audio context and variables
-let audioContext;
-let analyser;
-let microphone;
-let javascriptNode;
-let isRecording = false;
+// Game state
+let gameStarted = false;
+let currentNoteIndex = 0;
+let userSequence = [];
+let audioContext = null;
+
+// Note mappings (keys to frequencies)
+const noteMapping = {
+  '1': { note: 'G3', frequency: 196.00 },
+  '2': { note: 'B3', frequency: 246.94 },
+  '3': { note: 'C4', frequency: 261.63 },
+  '4': { note: 'D4', frequency: 293.66 },
+  '5': { note: 'E4', frequency: 329.63 },
+  '6': { note: 'F4', frequency: 349.23 },
+  '7': { note: 'G4', frequency: 392.00 },
+  '8': { note: 'A4', frequency: 440.00 },
+  '9': { note: 'B4', frequency: 493.88 }
+};
+
+// Perfect melody sequence
+const perfectMelody = [
+  { note: 'B3', duration: 'blanche', key: '2' },
+  { note: 'D4', duration: 'noire-pointee', key: '4' },
+  { note: 'G4', duration: 'ronde', key: '7' },
+  { note: 'E4', duration: 'croche', key: '5' },
+  { note: 'E4', duration: 'demi-croche', key: '5' },
+  { note: 'E4', duration: 'noire', key: '5' },
+  { note: 'E4', duration: 'croche', key: '5' },
+  { note: 'E4', duration: 'croche', key: '5' },
+  { note: 'D4', duration: 'demi-croche', key: '4' },
+  { note: 'C4', duration: 'noire', key: '3' },
+  { note: 'B3', duration: 'croche', key: '2' },
+  { note: 'C4', duration: 'blanche', key: '3' }
+];
+
+// Duration names in French
+const durationNames = {
+  'blanche': 'Blanche',
+  'noire': 'Noire',
+  'noire-pointee': 'Noire pointée',
+  'ronde': 'Ronde',
+  'croche': 'Croche',
+  'demi-croche': 'Demi-croche'
+};
 
 // DOM elements
-const startButton = document.getElementById('start-button');
-const noteDisplay = document.getElementById('note-display');
-const frequencyDisplay = document.getElementById('frequency-display');
-
-// Musical notes with their frequency ranges (in Hz)
-const noteFrequencies = [
-  { note: 'C', frequency: 261.63 },
-  { note: 'C#', frequency: 277.18 },
-  { note: 'D', frequency: 293.66 },
-  { note: 'D#', frequency: 311.13 },
-  { note: 'E', frequency: 329.63 },
-  { note: 'F', frequency: 349.23 },
-  { note: 'F#', frequency: 369.99 },
-  { note: 'G', frequency: 392.00 },
-  { note: 'G#', frequency: 415.30 },
-  { note: 'A', frequency: 440.00 },
-  { note: 'A#', frequency: 466.16 },
-  { note: 'B', frequency: 493.88 }
-];
+let durationOverlay, successCode;
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-  startButton.addEventListener('click', toggleRecording);
+  console.log('Musical melody game loaded');
+  initializeApp();
 });
 
 /**
- * Toggle between starting and stopping the recording
+ * Initialize the application
  */
-function toggleRecording() {
-  if (isRecording) {
-    stopRecording();
-  } else {
-    startRecording();
-  }
+function initializeApp() {
+  // Get DOM elements
+  durationOverlay = document.getElementById('duration-overlay');
+  successCode = document.getElementById('success-code');
+
+  // Add event listeners
+  document.addEventListener('keydown', handleKeyPress);
+
+  // Initialize audio context
+  initializeAudio();
+  
+  // Start game immediately
+  startGame();
+
+  console.log('App initialized');
 }
 
 /**
- * Detects browser name and version
- * @returns {Object} Object containing browser name and version
+ * Initialize Web Audio API
  */
-function getBrowserInfo() {
-  const userAgent = navigator.userAgent;
-  let browserName = "Unknown";
-  let browserVersion = "Unknown";
-  let browserEngine = "Unknown";
-  let isFiveM = false;
-  
-  // Check for FiveM's CitizenFX
-  if (userAgent.indexOf("CitizenFX") > -1) {
-    browserName = "FiveM Browser";
-    isFiveM = true;
-    
-    // Extract CitizenFX version
-    const fiveMMatch = userAgent.match(/CitizenFX\/(\d+\.\d+\.\d+\.\d+)/i);
-    if (fiveMMatch && fiveMMatch.length >= 2) {
-      browserVersion = fiveMMatch[1];
-    }
-    
-    // Also get Chrome version it's based on
-    const chromeMatch = userAgent.match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/i);
-    if (chromeMatch && chromeMatch.length >= 2) {
-      browserVersion += ` (Chrome ${chromeMatch[1]})`;
-    }
-    
-    browserEngine = "Blink (FiveM Modified)";
-  }
-  // Check for Chrome or Chromium-based browsers
-  else if (userAgent.match(/chrome|chromium|crios/i)) {
-    browserName = "Chrome/Chromium";
-    browserEngine = "Blink";
-  } 
-  // Check for Firefox
-  else if (userAgent.match(/firefox|fxios/i)) {
-    browserName = "Firefox";
-    browserEngine = "Gecko";
-  } 
-  // Check for Safari
-  else if (userAgent.match(/safari/i)) {
-    browserName = "Safari";
-    browserEngine = "WebKit";
-  } 
-  // Check for IE/Edge
-  else if (userAgent.match(/msie|trident|edge/i)) {
-    browserName = userAgent.indexOf("Edge") > -1 ? "Edge" : "Internet Explorer";
-    browserEngine = "EdgeHTML/Trident";
-  }
-  
-  // Extract version
-  const match = userAgent.match(/(chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
-  if (match && match.length >= 3) {
-    browserVersion = match[2];
-  }
-  
-  return {
-    name: browserName,
-    version: browserVersion,
-    engine: browserEngine,
-    userAgent: userAgent,
-    isFiveM: isFiveM,
-    hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-    hasWebAudio: !!(window.AudioContext || window.webkitAudioContext)
-  };
-}
-
-/**
- * Start the microphone recording and pitch detection
- */
-async function startRecording() {
-  // Audio context initialization
+function initializeAudio() {
   try {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   } catch (error) {
-    const browserInfo = getBrowserInfo();
-    console.error('Erreur audio:', error);
-    alert(`API Audio non supportée: ${browserInfo.name}`);
+    console.error('Web Audio API not supported:', error);
+  }
+}
+
+/**
+ * Start the game
+ */
+function startGame() {
+  gameStarted = true;
+  currentNoteIndex = 0;
+  userSequence = [];
+  
+  // Show first note background
+  showCurrentNote();
+  
+  console.log('Game started');
+}
+
+/**
+ * Show the current note information and update background
+ */
+function showCurrentNote() {
+  if (currentNoteIndex >= perfectMelody.length) {
+    endGame(true); // Game completed successfully
     return;
   }
   
-  // Microphone access
-  let stream;
-  try {
-    const browserInfo = getBrowserInfo();
-    
-    // Try with multiple constraint options for maximum compatibility
-    if (browserInfo.isFiveM) {
-      console.log("FiveM browser detected");
-      // FiveM: try with absolute minimal constraints
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({audio: true});
-      } catch (innerError) {
-        console.log("Trying with older API...");
-        // Try deprecated API as fallback
-        if (navigator.getUserMedia) {
-          return new Promise((resolve, reject) => {
-            navigator.getUserMedia({audio: true},
-              function(s) { 
-                stream = s;
-                resolve(s);
-              },
-              function(err) { reject(err); }
-            );
-          });
-        } else {
-          throw innerError;
-        }
+  const currentNote = perfectMelody[currentNoteIndex];
+  
+  // Update background based on duration
+  updateBackground(currentNote.duration);
+}
+
+/**
+ * Update background and overlay based on note duration
+ */
+function updateBackground(duration) {
+  // Reset overlay
+  durationOverlay.innerHTML = '';
+  durationOverlay.className = 'duration-overlay absolute inset-0 flex items-center justify-center';
+  
+  // Add duration-specific styling
+  durationOverlay.classList.add(`duration-${duration}`);
+  
+  // Add visual symbols for different durations
+  switch (duration) {
+    case 'blanche':
+      // White background (default)
+      break;
+      
+    case 'noire':
+    case 'noire-pointee':
+      // Black background (handled by CSS)
+      if (duration === 'noire-pointee') {
+        const point = document.createElement('div');
+        point.className = 'symbol-point';
+        durationOverlay.appendChild(point);
       }
+      break;
+      
+    case 'ronde':
+      // Black background with white filled circle
+      const rond = document.createElement('div');
+      rond.className = 'symbol-rond';
+      durationOverlay.appendChild(rond);
+      break;
+      
+    case 'croche':
+      // Black background with one white baton
+      const baton = document.createElement('div');
+      baton.className = 'symbol-baton';
+      durationOverlay.appendChild(baton);
+      break;
+      
+    case 'demi-croche':
+      // Black background with two white batons
+      const doubleBaton = document.createElement('div');
+      doubleBaton.className = 'symbol-double-baton';
+      doubleBaton.innerHTML = '<div class="baton"></div><div class="baton"></div>';
+      durationOverlay.appendChild(doubleBaton);
+      break;
+  }
+}
+
+/**
+ * Handle keyboard input
+ */
+function handleKeyPress(event) {
+  if (!gameStarted) return;
+  
+  let key = event.key;
+  
+  // Handle both main number keys and numpad
+  if (event.code.startsWith('Numpad')) {
+    key = event.code.replace('Numpad', '');
+  }
+  
+  // Check if it's a valid note key (1-9)
+  if (noteMapping[key]) {
+    playNote(key);
+    event.preventDefault();
+  }
+}
+
+/**
+ * Play a note and check if it's correct
+ */
+function playNote(key) {
+  if (currentNoteIndex >= perfectMelody.length) return;
+  
+  const expectedNote = perfectMelody[currentNoteIndex];
+  const playedNote = noteMapping[key];
+  
+  // Add to user sequence
+  userSequence.push(key);
+  
+  // Move to next note
+  currentNoteIndex++;
+  
+  // Check if we've finished all 12 notes
+  if (currentNoteIndex >= perfectMelody.length) {
+    // Check if sequence is correct
+    const isCorrect = checkSequence();
+    if (isCorrect) {
+      playSuccessSequence();
     } else {
-      // For regular browsers, try with normal constraints
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          autoGainControl: false,
-          noiseSuppression: false,
-          latency: 0
-        }
-      });
+      playFailureSequence();
     }
-    
-  } catch (error) {
-    const browserInfo = getBrowserInfo();
-    console.error('Erreur microphone:', error);
-    
-    // Simplified error message
-    if (browserInfo.isFiveM) {
-      alert(`Erreur micro: ${error.name}. Vérifiez F8.`);
-    } else {
-      let msg = `${error.name} - Micro non accessible.`;
-      if (error.name === 'NotAllowedError') {
-        msg = "Accès au micro refusé.";
-      } else if (error.name === 'NotFoundError') {
-        msg = "Aucun micro détecté.";
-      }
-      alert(msg);
-    }
-    
-    if (audioContext) {
-      audioContext.close().catch(e => console.error('Erreur fermeture audio:', e));
-    }
-    return;
-  }
-  
-  // Analyzer setup
-  try {
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    
-    // Connect microphone to analyzer
-    microphone = audioContext.createMediaStreamSource(stream);
-    microphone.connect(analyser);
-    
-    // JavaScript node setup
-    javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
-    analyser.connect(javascriptNode);
-    javascriptNode.connect(audioContext.destination);
-    
-    // Set up audio processing
-    javascriptNode.onaudioprocess = processAudio;
-    
-    // Update UI
-    isRecording = true;
-    startButton.textContent = 'Arrêter';
-    startButton.classList.remove('bg-green-600', 'hover:bg-green-700');
-    startButton.classList.add('bg-red-600', 'hover:bg-red-700');
-    
-    console.log('Recording started');
-  } catch (error) {
-    console.error('Erreur config audio:', error);
-    alert('Erreur traitement audio');
-    cleanupAudioResources(stream);
+  } else {
+    // Show next note
+    showCurrentNote();
   }
 }
 
 /**
- * Stop the microphone recording
+ * Check if user sequence matches perfect melody
  */
-function stopRecording() {
-  if (javascriptNode) {
-    javascriptNode.onaudioprocess = null;
-    javascriptNode.disconnect();
-    analyser.disconnect();
-    microphone.disconnect();
-    audioContext.close();
-  }
+function checkSequence() {
+  if (userSequence.length !== perfectMelody.length) return false;
   
-  // Update UI
-  isRecording = false;
-  startButton.textContent = 'Commencer l\'enregistrement';
-  startButton.classList.remove('bg-red-600', 'hover:bg-red-700');
-  startButton.classList.add('bg-green-600', 'hover:bg-green-700');
-  
-  // Reset displays
-  noteDisplay.textContent = '--';
-  frequencyDisplay.textContent = 'Fréquence: -- Hz';
-  
-  console.log('Recording stopped');
-}
-
-/**
- * Process audio data from microphone
- * @param {AudioProcessingEvent} e - Audio processing event
- */
-function processAudio(e) {
-  const bufferLength = analyser.frequencyBinCount;
-  const dataArray = new Uint8Array(bufferLength);
-  
-  analyser.getByteFrequencyData(dataArray);
-  
-  // Get the frequency with the highest amplitude
-  let maxValue = 0;
-  let maxIndex = 0;
-  
-  for (let i = 0; i < bufferLength; i++) {
-    if (dataArray[i] > maxValue) {
-      maxValue = dataArray[i];
-      maxIndex = i;
+  for (let i = 0; i < perfectMelody.length; i++) {
+    if (userSequence[i] !== perfectMelody[i].key) {
+      return false;
     }
   }
-  
-  // Calculate frequency from the index
-  const frequency = maxIndex * audioContext.sampleRate / analyser.fftSize;
-  
-  // Only process strong enough signals (above ambient noise)
-  if (maxValue > 100 && frequency > 80) { // Adjust threshold as needed
-    const note = getNote(frequency);
-    
-    // Update UI with detected note and frequency
-    if (note !== noteDisplay.textContent) {
-      noteDisplay.textContent = note;
-      noteDisplay.classList.add('note-animation');
-      setTimeout(() => noteDisplay.classList.remove('note-animation'), 300);
+  return true;
+}
+
+/**
+ * Play the entire melody and then success sound
+ */
+function playSuccessSequence() {
+  // Play entire melody
+  playMelodySequence(() => {
+    // After melody, play success sound and show code
+    playAudio('assets/success.mp3');
+    showSuccessCode();
+  });
+}
+
+/**
+ * Play failure sound and restart
+ */
+function playFailureSequence() {
+  playAudio('assets/failure.mp3');
+  setTimeout(() => {
+    resetGame();
+  }, 2000);
+}
+
+/**
+ * Play the entire perfect melody
+ */
+function playMelodySequence(callback) {
+  let noteIndex = 0;
+  const playNextNote = () => {
+    if (noteIndex >= perfectMelody.length) {
+      if (callback) callback();
+      return;
     }
     
-    frequencyDisplay.textContent = `Fréquence: ${Math.round(frequency)} Hz`;
-  }
+    const note = perfectMelody[noteIndex];
+    const frequency = noteMapping[note.key].frequency;
+    playTone(frequency, 0.5);
+    
+    noteIndex++;
+    setTimeout(playNextNote, 600); // 600ms between notes
+  };
+  
+  playNextNote();
 }
 
 /**
- * Get the musical note name from a frequency
- * @param {number} frequency - The frequency in Hz
- * @returns {string} The name of the musical note
+ * Play audio file
  */
-function getNote(frequency) {
-  // Find the note octave (assuming A4 = 440Hz)
-  const noteA4 = 440;
-  const octaveBase = Math.log2(frequency / noteA4);
-  const octave = Math.floor(octaveBase * 12) / 12;
-  
-  // Calculate octave number (A4's octave is 4)
-  const octaveNumber = Math.floor(4 + octaveBase);
-  
-  // Calculate note index (0-11) in the chromatic scale
-  const semitonesFromA = Math.round(octave * 12);
-  const noteIndex = (semitonesFromA + 9) % 12; // A is 9 semitones from C
-  
-  // Get the note name from the index
-  const noteName = noteFrequencies[noteIndex].note;
-  
-  return `${noteName}${octaveNumber}`;
+function playAudio(src) {
+  const audio = new Audio(src);
+  audio.volume = 0.5;
+  audio.play().catch(e => console.error('Audio play failed:', e));
 }
 
 /**
- * Helper function to clean up audio resources
- * @param {MediaStream} stream - The media stream to clean up
+ * Show success code
  */
-function cleanupAudioResources(stream) {
-  if (stream && stream.getTracks) {
-    stream.getTracks().forEach(track => track.stop());
-  }
+function showSuccessCode() {
+  // Set background to black
+  durationOverlay.innerHTML = '';
+  durationOverlay.className = 'duration-overlay absolute inset-0 flex items-center justify-center duration-noire';
   
-  if (javascriptNode) {
-    javascriptNode.onaudioprocess = null;
-    javascriptNode.disconnect();
-  }
+  // Show success code
+  successCode.classList.remove('hidden');
+}
+
+/**
+ * Reset game to beginning
+ */
+function resetGame() {
+  currentNoteIndex = 0;
+  userSequence = [];
+  successCode.classList.add('hidden');
+  showCurrentNote();
+}
+
+/**
+ * Play a tone with the given frequency
+ */
+function playTone(frequency, volume = 0.5) {
+  if (!audioContext) return;
   
-  if (analyser) {
-    analyser.disconnect();
-  }
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
   
-  if (microphone) {
-    microphone.disconnect();
-  }
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
   
-  if (audioContext) {
-    audioContext.close().catch(e => console.error('Erreur lors de la fermeture du contexte audio:', e));
-  }
+  gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+  gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.05);
+  gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.8);
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.8);
 }

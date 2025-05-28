@@ -197,6 +197,11 @@ function playNote(key) {
   const expectedNote = perfectMelody[currentNoteIndex];
   const playedNote = noteMapping[key];
   
+  // Play the sound immediately when key is pressed
+  if (audioContext) {
+    playTone(playedNote.frequency, 0.5); // 50% volume
+  }
+  
   // Add to user sequence
   userSequence.push(key);
   

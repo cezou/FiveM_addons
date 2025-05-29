@@ -7,12 +7,51 @@ body {
   background: white;
 }
 
+/* Startup screen styles */
+#startup-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: black;
+  z-index: 200; /* Above everything */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#startup-text {
+  color: white;
+  font-size: 2rem;
+  font-family: 'Courier New', monospace;
+  animation: blink 1s infinite;
+  transform: translateY(-80px);
+
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+#power-button-area {
+  position: absolute;
+  left: 675px;
+  top: 598px;
+  width: 68px; /* 743 - 675 */
+  height: 62px; /* 660 - 598 */
+  cursor: pointer;
+  z-index: 350; /* Above bg-pattern */
+}
+
 .bg-pattern {
   background-image: url('assets/bg.png');
   background-size: 100% auto;
   background-repeat: no-repeat;
   background-position: center top;
-  z-index: 100; /* Increased z-index to ensure it stays on top */
+  z-index: 300; /* Higher than everything else but below power button */
+  pointer-events: none; /* Allow clicks to pass through except for specific elements */
 }
 
 .duration-overlay {
@@ -139,6 +178,6 @@ button:active {
 .duration-blanche .text-black { color: black !important; }
 .duration-noire .text-black { color: white !important; }
 .duration-noire-pointee .text-black { color: white !important; }
-.duration-ronde .text-black { color: white !important; }
+.duration-ronde .text-black { color: black !important; }
 .duration-croche .text-black { color: white !important; }
 .duration-demi-croche .text-black { color: white !important; }

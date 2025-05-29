@@ -60,7 +60,7 @@ const durationTimes = {
 };
 
 // DOM elements
-let durationOverlay, successCode;
+let durationOverlay, successCode, startupScreen, powerButtonArea;
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -75,17 +75,18 @@ function initializeApp() {
   // Get DOM elements
   durationOverlay = document.getElementById('duration-overlay');
   successCode = document.getElementById('success-code');
+  startupScreen = document.getElementById('startup-screen');
+  powerButtonArea = document.getElementById('power-button-area');
 
   // Add event listeners
   document.addEventListener('keydown', handleKeyPress);
+  powerButtonArea.addEventListener('click', startComputer);
 
   // Initialize audio context
   initializeAudio();
   
-  // Start game immediately
-  startGame();
-
-  console.log('App initialized');
+  // Don't start game immediately - wait for power button
+  console.log('App initialized - waiting for power button');
 }
 
 /**
@@ -97,6 +98,25 @@ function initializeAudio() {
   } catch (error) {
     console.error('Web Audio API not supported:', error);
   }
+}
+
+/**
+ * Start the computer with startup sequence
+ */
+function startComputer() {
+  // Play startup sound
+  playAudio('assets/startup.mp3');
+  
+  // Start fade transition
+  startupScreen.style.transition = 'opacity 3s ease-out';
+  startupScreen.style.opacity = '0';
+  
+  // Remove startup screen and start game after fade
+  setTimeout(() => {
+    startupScreen.style.display = 'none';
+    powerButtonArea.style.display = 'none'; // Hide power button area
+    startGame();
+  }, 3000);
 }
 
 /**
@@ -138,16 +158,31 @@ function updateBackground(duration) {
   
   // Add duration-specific styling
   durationOverlay.classList.add(`duration-${duration}`);
-  
-  // Add visual symbols for different durations
+    // Change body background color based on duration
+  const body = document.body;
   switch (duration) {
     case 'blanche':
-      // White background (default)
+    case 'ronde':
+      body.style.backgroundColor = 'white';
       break;
       
     case 'noire':
     case 'noire-pointee':
-      // Black background (handled by CSS)
+    case 'croche':
+    case 'demi-croche':
+      body.style.backgroundColor = 'black';
+      break;
+  }
+  
+  // Add visual symbols for different durations
+  switch (duration) {
+    case 'blanche':
+      // White background (already set above)
+      break;
+      
+    case 'noire':
+    case 'noire-pointee':
+      // Black background (already set above)
       if (duration === 'noire-pointee') {
         const point = document.createElement('div');
         point.className = 'symbol-point';

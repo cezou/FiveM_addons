@@ -1,7 +1,9 @@
+/* Mettre la police Courier New en police par défaut et l'appliquer à ce texte qui est dans le html
+<div class="text-white text-8xl font-mono">4379</div>*/
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Arial', sans-serif;
+  font-family: 'Courier New', monospace;
   background: white;
 }
 
@@ -10,12 +12,24 @@ body {
   background-size: 100% auto;
   background-repeat: no-repeat;
   background-position: center top;
-  z-index: 10;
+  z-index: 100; /* Increased z-index to ensure it stays on top */
 }
 
 .duration-overlay {
   z-index: 2;
   pointer-events: none;
+}
+
+/* Success code should be behind bg.png */
+#success-code {
+  z-index: 50 !important; /* Less than bg-pattern */
+}
+
+#success-code .text-8xl {
+  font-size: 30wh !important;
+  font-family: 'Courier New', monospace !important;
+  color: lightgrey !important;
+  transform: translateY(-70px);
 }
 
 /* Note duration visual styles */
@@ -32,7 +46,7 @@ body {
 }
 
 .duration-ronde {
-  background-color: black;
+  background-color: white;
 }
 
 .duration-croche {
@@ -49,24 +63,36 @@ body {
   height: 100px;
   background-color: white;
   margin: 0 10px;
+  position: absolute;
+  top: 35vh;
+  transform: translateX(-50% - 4px);
 }
 
 .symbol-double-baton {
   display: flex;
+  position: absolute;
+  top: 35vh;
+  transform: translateX(-50%);
 }
 
 .symbol-double-baton .baton {
   width: 6px;
   height: 80px;
   background-color: white;
-  margin: 0 3px;
+  margin: 0 8px;
+  transform: translateX(20px);
 }
 
 .symbol-rond {
-  width: 150px;
-  height: 150px;
+  width: 300px;
+  height: 300px;
   background-color: white;
+  border: 10px solid black;
   border-radius: 50%;
+  position: absolute;
+  top: 35vh;
+  left: calc(50% - 150px);
+  transform: translate(0%, -110px);
 }
 
 .symbol-point {
@@ -74,7 +100,9 @@ body {
   height: 20px;
   background-color: white;
   border-radius: 50%;
-  margin-left: 20px;
+  position: absolute;
+  top: 35vh;
+  right: 30vh;
 }
 
 #note-display {

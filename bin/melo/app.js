@@ -8,6 +8,7 @@ let gameStarted = false;
 let currentNoteIndex = 0;
 let userSequence = [];
 let audioContext = null;
+let isPlayingNote = false; // Track if a note is currently playing
 
 // Note mappings (keys to frequencies)
 const noteMapping = {
@@ -46,6 +47,16 @@ const durationNames = {
   'ronde': 'Ronde',
   'croche': 'Croche',
   'demi-croche': 'Demi-croche'
+};
+
+// Duration in seconds for each note type
+const durationTimes = {
+  'ronde': 4.0,        // 4 temps
+  'blanche': 2.0,      // 2 temps
+  'noire': 1.0,        // 1 temps
+  'noire-pointee': 1.5, // 1.5 temps
+  'croche': 0.5,       // 1/2 temps
+  'demi-croche': 0.25  // 1/4 temps
 };
 
 // DOM elements
@@ -172,7 +183,7 @@ function updateBackground(duration) {
  * Handle keyboard input
  */
 function handleKeyPress(event) {
-  if (!gameStarted) return;
+  if (!gameStarted || isPlayingNote) return; // Block input if note is playing
   
   let key = event.key;
   
@@ -192,34 +203,71 @@ function handleKeyPress(event) {
  * Play a note and check if it's correct
  */
 function playNote(key) {
-  if (currentNoteIndex >= perfectMelody.length) return;
+  if (currentNoteIndex >= perfectMelody.length || isPlayingNote) return;
   
   const expectedNote = perfectMelody[currentNoteIndex];
   const playedNote = noteMapping[key];
   
-  // Play the sound immediately when key is pressed
+  // Set playing state to block further input
+  isPlayingNote = true;
+  
+  // Play the sound with correct duration when key is pressed
   if (audioContext) {
-    playTone(playedNote.frequency, 0.5); // 50% volume
-  }
-  
-  // Add to user sequence
-  userSequence.push(key);
-  
-  // Move to next note
-  currentNoteIndex++;
-  
-  // Check if we've finished all 12 notes
-  if (currentNoteIndex >= perfectMelody.length) {
-    // Check if sequence is correct
-    const isCorrect = checkSequence();
-    if (isCorrect) {
-      playSuccessSequence();
-    } else {
-      playFailureSequence();
-    }
+    const noteDuration = durationTimes[expectedNote.duration];
+    playTone(playedNote.frequency, 0.5, noteDuration);
+    
+    // Wait for the note to finish before allowing next input
+    setTimeout(() => {
+      isPlayingNote = false;
+      
+      // Add to user sequence
+      userSequence.push(key);
+      
+      // Move to next note
+      currentNoteIndex++;
+      
+      // Check if we've finished all 12 notes
+      if (currentNoteIndex >= perfectMelody.length) {        // Always play the user's melody first, then check if correct
+        playUserMelodySequence(() => {
+          const isCorrect = checkSequence();
+          if (isCorrect) {
+            // Play success sound, then wait 2 seconds before blinking and showing code
+            playAudio('assets/success.mp3');
+            setTimeout(() => {
+              showSuccessWithBlinking();
+            }, 2300);
+          } else {
+            playFailureSequence();
+          }
+        });
+      } else {
+        // Show next note
+        showCurrentNote();
+      }
+    }, noteDuration * 1000);
   } else {
-    // Show next note
-    showCurrentNote();
+    // Fallback if no audio context
+    setTimeout(() => {
+      isPlayingNote = false;
+      userSequence.push(key);
+      currentNoteIndex++;
+      
+      if (currentNoteIndex >= perfectMelody.length) {        playUserMelodySequence(() => {
+          const isCorrect = checkSequence();
+          if (isCorrect) {
+            // Play success sound, then wait 2 seconds before blinking and showing code
+            playAudio('assets/success.mp3');
+            setTimeout(() => {
+              showSuccessWithBlinking();
+            }, 2300);
+          } else {
+            playFailureSequence();
+          }
+        });
+      } else {
+        showCurrentNote();
+      }
+    }, durationTimes[expectedNote.duration] * 1000);
   }
 }
 
@@ -238,15 +286,53 @@ function checkSequence() {
 }
 
 /**
+ * Play the user's melody sequence
+ */
+function playUserMelodySequence(callback) {
+  let noteIndex = 0;
+  const playNextNote = () => {
+    if (noteIndex >= userSequence.length) {
+      if (callback) callback();
+      return;
+    }
+    
+    const userKey = userSequence[noteIndex];
+    const originalNote = perfectMelody[noteIndex];
+    const playedNote = noteMapping[userKey];
+    
+    if (audioContext && playedNote) {
+      // Use original duration for visual but speed up audio 3x
+      const originalDuration = durationTimes[originalNote.duration];
+      const speedUpDuration = originalDuration / 3;
+      
+      // Show background for the original duration type
+      updateBackground(originalNote.duration);
+      
+      playTone(playedNote.frequency, 0.3, speedUpDuration);
+      
+      // Wait for the sped-up duration before playing next note
+      setTimeout(() => {
+        noteIndex++;
+        playNextNote();
+      }, speedUpDuration * 1000);
+    } else {
+      noteIndex++;
+      playNextNote();
+    }
+  };
+  
+  playNextNote();
+}
+
+/**
  * Play the entire melody and then success sound
  */
 function playSuccessSequence() {
-  // Play entire melody
-  playMelodySequence(() => {
-    // After melody, play success sound and show code
-    playAudio('assets/success.mp3');
-    showSuccessCode();
-  });
+  // This function is now simplified since user melody is played elsewhere
+  playAudio('assets/success.mp3');
+	setTimeout(() => {
+	showSuccessWithBlinking();
+}, 2300);
 }
 
 /**
@@ -254,9 +340,10 @@ function playSuccessSequence() {
  */
 function playFailureSequence() {
   playAudio('assets/failure.mp3');
+  // Wait 2 seconds before starting the blinking
   setTimeout(() => {
-    resetGame();
-  }, 2000);
+    showFailureWithBlinking();
+  }, 2300);
 }
 
 /**
@@ -303,19 +390,80 @@ function showSuccessCode() {
 }
 
 /**
+ * Show success with green blinking background
+ */
+function showSuccessWithBlinking() {
+  let blinkCount = 0;
+  const maxBlinks = 4; // 2 complete blinks (on/off/on/off)
+  
+  const blink = () => {
+    if (blinkCount >= maxBlinks) {
+      // After blinking, show success code
+      showSuccessCode();
+      return;
+    }
+    
+    // Alternate between green and white
+    const isGreen = blinkCount % 2 === 0;
+    durationOverlay.innerHTML = '';
+    durationOverlay.className = 'duration-overlay absolute inset-0 flex items-center justify-center';
+    durationOverlay.style.backgroundColor = isGreen ? '#00ff00' : '#ffffff';
+    
+    blinkCount++;
+    setTimeout(blink, 300); // 300ms between blinks
+  };
+  
+  blink();
+}
+
+/**
+ * Show failure with red/white blinking background then restart
+ */
+function showFailureWithBlinking() {
+  let blinkCount = 0;
+  const maxBlinks = 4; // 2 complete blinks (red/white/red/white)
+  
+  const blink = () => {
+    if (blinkCount >= maxBlinks) {
+      // After blinking, reset game
+      setTimeout(() => {
+        resetGame();
+      }, 500);
+      return;
+    }
+    
+    // Alternate between red and white
+    const isRed = blinkCount % 2 === 0;
+    durationOverlay.innerHTML = '';
+    durationOverlay.className = 'duration-overlay absolute inset-0 flex items-center justify-center';
+    durationOverlay.style.backgroundColor = isRed ? '#ff0000' : '#ffffff';
+    
+    blinkCount++;
+    setTimeout(blink, 300); // 300ms between blinks
+  };
+  
+  blink();
+}
+
+/**
  * Reset game to beginning
  */
 function resetGame() {
   currentNoteIndex = 0;
   userSequence = [];
+  isPlayingNote = false; // Reset playing state
   successCode.classList.add('hidden');
+  
+  // Reset any inline styles from blinking
+  durationOverlay.style.backgroundColor = '';
+  
   showCurrentNote();
 }
 
 /**
  * Play a tone with the given frequency
  */
-function playTone(frequency, volume = 0.5) {
+function playTone(frequency, volume = 0.5, duration = 0.8) {
   if (!audioContext) return;
   
   const oscillator = audioContext.createOscillator();
@@ -326,11 +474,11 @@ function playTone(frequency, volume = 0.5) {
   
   gainNode.gain.setValueAtTime(0, audioContext.currentTime);
   gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.05);
-  gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.8);
+  gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
   
   oscillator.connect(gainNode);
   gainNode.connect(audioContext.destination);
   
   oscillator.start();
-  oscillator.stop(audioContext.currentTime + 0.8);
+  oscillator.stop(audioContext.currentTime + duration);
 }

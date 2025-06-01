@@ -3,7 +3,8 @@ let dragging = null;
 let dragStart = { x: 0, y: 0, mouse: 0 };
 let gameWon = false;
 let redCarFree = false;
-const gapSize = 0; 
+let currentResultCode = ''; // Store the result code from the level
+const gapSize = 0;
 
 /**
  * @brief Loads and initializes a game level from a map file.
@@ -15,9 +16,11 @@ async function loadLevel(mapPath) {
     try {
         const response = await fetch(mapPath);
         if (!response.ok)
-            throw new Error(`HTTP error! status: ${response.status}`);
-        const mapData = await response.json();
+            throw new Error(`HTTP error! status: ${response.status}`);        const mapData = await response.json();
         let carCounter = 0;
+
+        // Extract result code from level data
+        currentResultCode = mapData.result_code || '';
 
         cars = [];
         gameWon = false;
@@ -82,11 +85,10 @@ function initializeGameBoard() {
         carDiv.setAttribute('data-x', car.x);
         carDiv.setAttribute('data-y', car.y);
         carDiv.setAttribute('data-length', car.length);
-        carDiv.setAttribute('draggable', 'false');
-        if (car.id === 'red') {
+        carDiv.setAttribute('draggable', 'false');        if (car.id === 'red') {
             const label = document.createElement('div');
             label.className = 'red-label';
-            label.textContent = '8882';
+            label.textContent = currentResultCode;
             carDiv.appendChild(label);
         }
         gameBoardElement.appendChild(carDiv);

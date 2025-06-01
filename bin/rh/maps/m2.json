@@ -1,0 +1,14 @@
+{
+  "grid_size": [6, 6],
+  "result_code": "6",
+  "vehicles": [
+    { "pos": [1, 2], "dir": "horizontal", "size": 2, "player": true },
+    { "pos": [1, 0], "dir": "horizontal", "size": 2 },
+    { "pos": [0, 0], "dir": "vertical", "size": 3 },
+    { "pos": [2, 3], "dir": "vertical", "size": 2 },
+    { "pos": [3, 0], "dir": "vertical", "size": 3 },
+    { "pos": [3, 3], "dir": "horizontal", "size": 3 },
+    { "pos": [2, 5], "dir": "horizontal", "size": 3},
+    { "pos": [5, 4], "dir": "vertical", "size": 2}
+  ]
+}

@@ -85,10 +85,11 @@ function initializeGameBoard() {
         carDiv.setAttribute('data-x', car.x);
         carDiv.setAttribute('data-y', car.y);
         carDiv.setAttribute('data-length', car.length);
-        carDiv.setAttribute('draggable', 'false');        if (car.id === 'red') {
+        carDiv.setAttribute('draggable', 'false');
+        if (car.id === 'red') {
             const label = document.createElement('div');
             label.className = 'red-label';
-            label.textContent = currentResultCode;
+            label.textContent = '8882';
             carDiv.appendChild(label);
         }
         gameBoardElement.appendChild(carDiv);

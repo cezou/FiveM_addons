@@ -1,6 +1,5 @@
 {
 	"grid_size": [6, 6],
-	"result_code": "8882",
 	"vehicles": [
 	  { "pos": [2, 2], "dir": "horizontal", "size": 2, "player": true },
 	  { "pos": [0, 1], "dir": "vertical", "size": 2 },
